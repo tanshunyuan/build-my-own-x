@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "fast-check": "^3.23.2"
+  },
+  "dependencies": {
+    "chai": "^5.1.2"
+  }
+}
