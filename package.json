@@ -1,8 +1,10 @@
 {
+  "type": "module",
   "devDependencies": {
     "fast-check": "^3.23.2"
   },
   "dependencies": {
-    "chai": "^5.1.2"
+    "chai": "^5.1.2",
+    "chalk": "^5.4.1"
   }
 }
