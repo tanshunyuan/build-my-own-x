@@ -1,5 +1,3 @@
-// https://pomb.us/build-your-own-react/
-
 const cl = (...items) => console.log(...items);
 const clJSON = (...items) => console.log(JSON.stringify(...items, null, 2));
 
