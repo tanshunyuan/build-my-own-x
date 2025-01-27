@@ -44,20 +44,84 @@
 //   ]
 // )
 
-function openOrSenior(data){ 
-  const result = []
-  for (let i = 0; i < data.length; i++){
-    const age = data[i][0]
-    const handicap = data[i][1]
-    if(age >= 55 && handicap > 7) {
-      result.push('Senior')
-    }else{
-      result.push('Open')
+// function openOrSenior(data){ 
+//   const result = []
+//   for (let i = 0; i < data.length; i++){
+//     const age = data[i][0]
+//     const handicap = data[i][1]
+//     if(age >= 55 && handicap > 7) {
+//       result.push('Senior')
+//     }else{
+//       result.push('Open')
+//     }
+//   }
+
+//   console.log(result)
+//   return result
+// }
+
+// openOrSenior([[3, 12],[55,1],[91, -2],[53, 23]])
+
+// function descendingOrder(n: number) {
+//   const findLargest = (arr: number[]) => {
+//     let largest = arr[0]
+//     let largestIndex = 0
+
+//     arr.forEach((item, index) => {
+//       if (item > largest) {
+//         largest = item
+//         largestIndex = index
+//       }
+//     })
+//     return { largestIndex }
+//   }
+
+//   const isOneDigit = n < 10
+//   if (isOneDigit) {
+//     return n
+//   } else {
+//     const arrN = n.toString().split("").map(Number)
+//     const result: string[] = []
+//     while (arrN.length > 0) {
+//       const { largestIndex } = findLargest(arrN)
+//       result.push(arrN[largestIndex].toString()) 
+//       arrN.splice(largestIndex, 1)
+//     }
+//     return Number(result.join(''))
+//   }
+// }
+// descendingOrder(1021)
+
+function sevenAte9(str) {
+  const strArr = str.split('')
+  const removeIndex: number[] = []
+  let result: number[] = []
+
+  for (let i = 1; i < strArr.length; i++) {
+    const lookahead = strArr[i + 1]
+    const lookbehind = strArr[i - 1]
+    const current = strArr[i]
+
+    if (current === '9') {
+      if (lookahead === '7' && lookbehind === '7') {
+        removeIndex.push(i)
+      }
     }
   }
 
-  console.log(result)
-  return result
+  strArr.forEach((item, index) => {
+    if (!removeIndex.includes(index)) {
+      result.push(item)
+    }
+  })
+  return result.join('')
+
 }
 
-openOrSenior([[3, 12],[55,1],[91, -2],[53, 23]])
+// Actual ANS
+// function sevenAte9(str){
+//   return str.replace(/79(?=7)/g, '7');
+// }
+sevenAte9('797')
+sevenAte9('7979797')
+sevenAte9('165561786121789797')

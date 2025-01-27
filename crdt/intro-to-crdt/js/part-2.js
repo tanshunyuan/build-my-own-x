@@ -2,7 +2,7 @@
 
 import fc, { sample } from "fast-check";
 import { assert } from 'chai'
-import { checkAll } from "./misc/fc-runner.js";
+import { checkAll } from "../misc/fc-runner.js";
 import chalk from "chalk";
 
 // Comparision is made through an operator such as '<'

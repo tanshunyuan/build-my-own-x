@@ -4,6 +4,7 @@
     "fast-check": "^3.23.2"
   },
   "dependencies": {
+    "@types/chai": "^5.0.1",
     "chai": "^5.1.2",
     "chalk": "^5.4.1",
     "react": "^19.0.0",

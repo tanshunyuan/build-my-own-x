@@ -149,6 +149,7 @@ const thunkMiddleware =
   ({ dispatch, getState }) =>
   (next) =>
   (action) => {
+    console.log(`thunk next: ${next}`)
     if (typeof action === "function") {
       return action(dispatch, getState);
     }

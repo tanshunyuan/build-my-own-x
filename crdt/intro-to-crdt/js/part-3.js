@@ -1,7 +1,7 @@
 // https://lars.hupel.info/topics/crdt/03-lattices/
 
 import { assert } from "chai"
-import { checkAll } from './misc/fc-runner.js'
+import { checkAll } from '../misc/fc-runner.js'
 import fc from 'fast-check'
 
 const lattices = {}
