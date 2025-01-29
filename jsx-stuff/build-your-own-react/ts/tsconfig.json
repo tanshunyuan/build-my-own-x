@@ -2,9 +2,12 @@
   "compilerOptions": {
     "module": "commonjs",
     "target": "ES2015",
-    "lib": ["ESNext","ESNext.Collection", "DOM"],
-    "outDir": "ts-built",
-    "rootDir": "script",
-    "skipLibCheck": true
+    "lib": ["ESNext", "ESNext.Collection", "DOM"],
+    "skipLibCheck": true,
+
+    "jsx": "preserve",
+    "baseUrl": ".",
+    "rootDir": ".",
+    "outDir": "./dist"
   }
 }
