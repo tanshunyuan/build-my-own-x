@@ -161,7 +161,7 @@ const commitWork = (fiber: Fiber) => {
   if (!fiber) return
 
   let domParentFiber = fiber.parent
-  while (!domParentFiber) {
+  while (!domParentFiber.dom) {
     domParentFiber = domParentFiber.parent
   }
 
@@ -369,15 +369,15 @@ const Didact = {
 
 // official
 /**@jsx Didact.createElement*/
-const container = document.getElementById("root")
-const Counter = () => {
-  const [state, setState] = Didact.useState(1)
-  return <h1 onClick={() => setState(c => c++)}>
-    Count: {state}
-  </h1>
+function Counter() {
+  const [state, setState] = Didact.useState(1);
+  return (
+    <h1 onClick={() => setState(c => c + 1)} >
+      Count: {state}
+    </h1>
+  );
 }
-
-const element = <Counter />
-
-Didact.render(element, container)
+const element = <Counter />;
+const container = document.getElementById("root");
+Didact.render(element, container);
 
