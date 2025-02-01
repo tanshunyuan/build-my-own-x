@@ -241,7 +241,12 @@ const performUnitOfWork = (fiber: Fiber) => {
   }
 };
 
+let hookIndex = null
+let wipFiber = null
 const updateFunctionComponent = (fiber) => {
+  wipFiber = fiber
+  hookIndex = 0
+  wipFiber.hooks = []
   // running the Function to get the children
   const children = [fiber.type(fiber.props)]
   reconcileChildren(fiber, children)
@@ -257,6 +262,38 @@ const updateHostComponent = (fiber) => {
   // create fibers for the element CHILDREN
   const elements = fiber.props.children;
   reconcileChildren(fiber, elements)
+}
+
+
+const useState = (initial) => {
+  const oldHook =
+    wipFiber.alternate &&
+    wipFiber.alternate.hooks &&
+    wipFiber.alternate.hooks[hookIndex]
+
+  const hook = {
+    state: oldHook ? oldHook.state : initial,
+    queue: []
+  }
+  const actions = oldHook ? oldHook.queue : []
+  actions.forEach(action => {
+    hook.state = action(hook.state)
+  })
+
+  const setState = action => {
+    hook.queue.push(action)
+    wipRoot = {
+      dom: currentRoot.dom,
+      props: currentRoot.props,
+      alternate: currentRoot
+    }
+    nextUnitOfWork = wipRoot
+    deletions = []
+  }
+
+  wipFiber.hooks.push(hook)
+  hookIndex++
+  return [hook.state, setState]
 }
 
 const reconcileChildren = (wipFiber: Fiber, elements: Fiber['props']['children']) => {
@@ -319,6 +356,7 @@ const reconcileChildren = (wipFiber: Fiber, elements: Fiber['props']['children']
 const Didact = {
   createElement,
   render,
+  useState,
 };
 
 // under the hood
@@ -332,19 +370,14 @@ const Didact = {
 // official
 /**@jsx Didact.createElement*/
 const container = document.getElementById("root")
-
-const updateValue = e => {
-  rerender(e.target.value)
+const Counter = () => {
+  const [state, setState] = Didact.useState(1)
+  return <h1 onClick={() => setState(c => c++)}>
+    Count: {state}
+  </h1>
 }
 
-const rerender = value => {
-  const element = (
-    <div>
-      <input onInput={updateValue} value={value} />
-      <h2>Hello {value}</h2>
-    </div>
-  )
-  Didact.render(element, container)
-}
+const element = <Counter />
 
-rerender("World")
+Didact.render(element, container)
+
