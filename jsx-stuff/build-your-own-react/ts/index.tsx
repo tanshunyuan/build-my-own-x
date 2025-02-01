@@ -1,14 +1,12 @@
 const clJSON = (...items: any) => console.log(JSON.stringify(items, null, 2));
 
-type CustomProps = Record<string, string | number>;
-
 /**@todo figure out type for children */
 // children can be either objects or string in createElement
 // object_children = createElement( "div", { id: "foo" }, createElement("a", null, "bar",))
 // string_children = createElement("a", null, "bar")
 const createElement = (
   type: string,
-  props?: HTMLElement & CustomProps,
+  props?: HTMLElement & Record<string, string | number>,
   ...children: any[]
 ) => {
   children = children.map((child) =>
@@ -36,10 +34,11 @@ const createTextElement = (text: string) => {
 type CreateElementResults = ReturnType<typeof createElement>;
 
 type Dom = HTMLElement | Text
+
+// each element is a fiber
 type Fiber = {
-  type: string
+  type: string | Function
   dom: Dom | null;
-  // each element is a fiber
   parent?: Fiber
   child?: Fiber
   sibling?: Fiber
@@ -47,11 +46,14 @@ type Fiber = {
   props: {
     children: CreateElementResults[];
   };
-  effectTag: string
+  effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETION'
 } | null;
+
 // Use unit of work to split workloads
 let nextUnitOfWork: Fiber = null;
+/**@description new root that is being processed*/
 let wipRoot = null
+/**@description previous root that was processed. Diffing occurs between this and fiber.alternate*/
 let currentRoot = null
 let deletions = null
 
@@ -67,9 +69,9 @@ const createDom = (fiber): Dom => {
   return dom;
 };
 
-const filterChildrenProps = (key: string) => key !== "children";
-
+/**@description filters out props starting with on, for separate handling */
 const isEvent = key => key.startsWith("on")
+/**@description filters out children and event props to prevent double processing */
 const isProperty = key =>
   key !== "children" && !isEvent(key)
 const isNew = (prev, next) => key =>
@@ -77,7 +79,6 @@ const isNew = (prev, next) => key =>
 const isGone = (prev, next) => key => !(key in next)
 
 const updateDom = (dom: Dom, prevProps, nextProps) => {
-  // TODO
   //Remove old or changed event listeners
   Object.keys(prevProps)
     .filter(isEvent)
@@ -98,15 +99,15 @@ const updateDom = (dom: Dom, prevProps, nextProps) => {
 
   // Remove old properties
   Object.keys(prevProps)
-    .filter(filterChildrenProps)
+    .filter(isProperty)
     .filter(isGone(prevProps, nextProps))
     .forEach(name => {
       dom[name] = ""
     })
-​
+
   // Set new or changed properties
   Object.keys(nextProps)
-    .filter(filterChildrenProps)
+    .filter(isProperty)
     .filter(isNew(prevProps, nextProps))
     .forEach(name => {
       dom[name] = nextProps[name]
@@ -126,6 +127,9 @@ const updateDom = (dom: Dom, prevProps, nextProps) => {
     })
 }
 
+/**
+ * @description render fn coordinates the preparation and assignment of the next unit of work 
+ */
 const render = (element: CreateElementResults, container: Dom) => {
   // root fiber tree
   wipRoot = {
@@ -141,6 +145,7 @@ const render = (element: CreateElementResults, container: Dom) => {
   nextUnitOfWork = wipRoot
 };
 
+/**@description commit the whole fiber tree to dom, recursively appends all nodes to it */
 const commitRoot = () => {
   deletions.forEach(commitWork)
   // add nodes to dom
@@ -151,10 +156,16 @@ const commitRoot = () => {
   wipRoot = null
 }
 
+/**@description a helper function to ?? */
 const commitWork = (fiber: Fiber) => {
   if (!fiber) return
 
-  const domParent = fiber.parent.dom
+  let domParentFiber = fiber.parent
+  while (!domParentFiber) {
+    domParentFiber = domParentFiber.parent
+  }
+
+  const domParent = domParentFiber.dom
 
   if (
     fiber.effectTag === "PLACEMENT" &&
@@ -171,12 +182,21 @@ const commitWork = (fiber: Fiber) => {
       fiber.props
     )
   } else if (fiber.effectTag === "DELETION") {
-    domParent.removeChild(fiber.dom)
+    commitDeletion(fiber, domParent)
   }
 
   // recursively commit child and sibling nodes
   commitWork(fiber.child)
   commitWork(fiber.sibling)
+}
+
+// why need to be recursive?
+const commitDeletion = (fiber, domParent) => {
+  if (fiber.dom) {
+    domParent.removeChild(fiber.dom)
+  } else {
+    commitDeletion(fiber.child, domParent)
+  }
 }
 
 const workLoop = (deadline: IdleDeadline) => {
@@ -200,41 +220,13 @@ requestIdleCallback(workLoop);
 
 // Processes the unit of work and selects the next one
 const performUnitOfWork = (fiber: Fiber) => {
-  // add elements to the DOM
-  if (!fiber.dom) {
-    fiber.dom = createDom(fiber);
+  const isFunctionComponent = fiber.type instanceof Function
+
+  if (isFunctionComponent) {
+    updateFunctionComponent(fiber)
+  } else {
+    updateHostComponent(fiber)
   }
-
-  // causes interruption?
-  // if (fiber.parent) {
-  //   fiber.parent.dom.appendChild(fiber.dom);
-  // }
-
-  // create fibers for the element CHILDREN
-  const elements = fiber.props.children;
-  reconcileChildren(fiber, elements)
-  // let index = 0;
-  // let prevSibling = null;
-
-  // while (index < elements.length) {
-  //   const element = elements[index];
-  //   // unit of work
-  //   const newFiber = {
-  //     type: element.type,
-  //     props: element.props,
-  //     parent: fiber,
-  //     dom: null,
-  //   };
-
-  //   if (index === 0) {
-  //     fiber.child = newFiber;
-  //   } else {
-  //     prevSibling.sibling = newFiber;
-  //   }
-
-  //   prevSibling = newFiber;
-  //   index++;
-  // }
 
   if (fiber.child) {
     return fiber.child;
@@ -249,35 +241,50 @@ const performUnitOfWork = (fiber: Fiber) => {
   }
 };
 
+const updateFunctionComponent = (fiber) => {
+  // running the Function to get the children
+  const children = [fiber.type(fiber.props)]
+  reconcileChildren(fiber, children)
+}
+
+// why is it called host compoent?
+const updateHostComponent = (fiber) => {
+  // add elements to the DOM
+  if (!fiber.dom) {
+    fiber.dom = createDom(fiber);
+  }
+
+  // create fibers for the element CHILDREN
+  const elements = fiber.props.children;
+  reconcileChildren(fiber, elements)
+}
+
 const reconcileChildren = (wipFiber: Fiber, elements: Fiber['props']['children']) => {
   let index = 0;
-  let prevFiber = wipFiber.alternate && wipFiber.alternate.child
+  let oldFiber = wipFiber.alternate && wipFiber.alternate.child
   let prevSibling = null;
 
-  while (index < elements.length || prevFiber != null) {
+  while (index < elements.length || oldFiber != null) {
     const element = elements[index];
     let newFiber = null
-    // unit of work
-    // const newFiber = {
-    //   type: element.type,
-    //   props: element.props,
-    //   parent: wipFiber,
-    //   dom: null,
-    // };
 
-    const sameType = prevFiber && element && element.type == prevFiber.type
+    const sameType = oldFiber && element && element.type == oldFiber.type
 
     if (sameType) {
+      // after diffing, if the root type is the same, but
+      // there are some changes to the props apply it
       newFiber = {
-        type: prevFiber.type,
+        type: oldFiber.type,
         props: element.props,
-        dom: prevFiber.dom,
+        dom: oldFiber.dom,
         parent: wipFiber,
-        alternate: prevFiber,
+        alternate: oldFiber,
         effectTag: "UPDATE"
       }
     }
 
+    // after diffing, if the root type isn't the same.
+    // destroy the tree & re-render it
     if (element && !sameType) {
       newFiber = {
         type: element.type,
@@ -289,13 +296,13 @@ const reconcileChildren = (wipFiber: Fiber, elements: Fiber['props']['children']
       }
     }
 
-    if (prevFiber && !sameType) {
-      prevFiber.effectTag = "DELETION"
-      deletions.push(prevFiber)
+    if (oldFiber && !sameType) {
+      oldFiber.effectTag = "DELETION"
+      deletions.push(oldFiber)
     }
 
-    if (prevFiber) {
-      prevFiber = prevFiber.sibling
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling
     }
 
     if (index === 0) {
