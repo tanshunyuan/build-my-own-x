@@ -17,7 +17,7 @@ function Counter() {
     <h1 onClick={() => {
       cl('h1.onClick')
       setState(c => c + 1)
-    }} style="user-select: none">
+    }}>
       Count: {state}
     </h1>
   );

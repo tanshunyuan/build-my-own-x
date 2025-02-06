@@ -113,7 +113,7 @@ const commitWork = (fiber) => {
   }
 
   commitWork(fiber.child)
-  commitWork(fiber.silbing)
+  commitWork(fiber.sibling)
 }
 
 const commitDeletion = (fiber, domParent) => {
@@ -203,10 +203,16 @@ const updateHostComponent = (fiber) => {
 
 
 const reconcileChildren = (wipFiber, elements) => {
-  cl('reconcileChildren ==> ', { wipFiber, elements })
+  cl('reconcileChildren args ==> ', { wipFiber, elements })
   let index = 0
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child
   let prevSibling = null
+  cl('reconcileChildren ==> ', {
+    index,
+    oldFiber,
+    prevSibling
+
+  })
 
   /**
    * @important
@@ -217,7 +223,7 @@ const reconcileChildren = (wipFiber, elements) => {
    * We need to compare them to see if there is any changes
    * to apply to the DOM
    */
-  while (index < elements.length || oldFiber !== null) {
+  while (index < elements.length || oldFiber != null) {
     const element = elements[index]
     let newFiber = null
 
