@@ -1,14 +1,15 @@
-type ElementType = string | Function | object
+import { cl } from "../helper"
+
+type ElementType = string
 /**@todo figure out why this works */
-type ElementProps = Partial<HTMLElement> & Record<string, any> | null | { children: ElementChildren[]}
+type ElementProps = Partial<HTMLElement> & Record<string, any> | null | { children: ElementChildren[] }
 
-type ElementNode = {
+export type ElementChildren = string | ElementNode
+
+export type ElementNode = {
   type: ElementType
-  props: ElementProps 
+  props: ElementProps
 }
-
-type ElementChildren = string | ElementNode
-
 /**
  * @description createElement is used to transform JSX to valid JS
  * The transpiler will break the JSX into three parts
@@ -16,10 +17,12 @@ type ElementChildren = string | ElementNode
  * props - properties of the JSX
  * children 
  * @example
- * <div id="foo">
+ * JSX
+ * const element = <div id="foo">
  *   <a>bar</a>
  *   <b />
  * </div>
+ * Transpiler breaking JSX into three parts
  * const element = React.createElement(
  *   "div",
  *   { id: "foo" },
@@ -52,13 +55,15 @@ type ElementChildren = string | ElementNode
  * }
  */
 export const createElement = (type: ElementType, props?: ElementProps, ...children: ElementChildren[]) => {
-  return {
+  const results = {
     type,
     props: {
       ...props,
       children: children.map(child => typeof child === 'object' ? child : createTextElement(child))
     }
   }
+  cl('createElement.results ==> ',JSON.stringify(results, null, 2))
+  return results
 }
 
 /**
@@ -67,7 +72,7 @@ export const createElement = (type: ElementType, props?: ElementProps, ...childr
  * which is dom elements 
  */
 const createTextElement = (text: string) => {
-  return {
+  const results = {
     type: 'TEXT_ELEMENT',
     props: {
       nodeValue: text,
@@ -75,4 +80,6 @@ const createTextElement = (text: string) => {
     }
   }
 
+  cl('createTextElement.results ==> ',JSON.stringify(results, null, 2))
+  return results
 }

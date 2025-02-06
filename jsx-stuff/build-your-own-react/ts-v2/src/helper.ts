@@ -1,0 +1,1 @@
+export const cl = (...items: any) => console.log(...items)
