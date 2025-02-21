@@ -1,0 +1,16 @@
+{
+  "configurations": [
+    {
+      "type": "firefox",
+      "name": "zen-desktop:react",
+      "request": "launch",
+      "url": "http://localhost:5173",
+      "pathMappings": [
+        {
+          "url": "http://localhost:5173/src",
+          "path": "${workspaceFolder}/jsx-stuff/build-your-own-react/ts-v2/src"
+        }
+      ]
+    }
+  ]
+}
