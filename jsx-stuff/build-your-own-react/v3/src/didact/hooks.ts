@@ -1,7 +1,7 @@
 import { cl } from "../helper"
 
 // hooks are just a queue, they're comparing their old vs new
-export const useState = (initial: any) => {
+export const useState = <Type>(initial: Type) => {
   cl(`useState.gWipFiber ==> `, gWipFiber)
   const oldHook =
     gWipFiber.alternate &&

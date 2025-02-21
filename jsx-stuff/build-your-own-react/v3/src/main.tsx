@@ -8,11 +8,9 @@ window.deletions = null
 window.gWipFiber = null
 window.hookIndex = null
 
-
-
 /** @jsx Didact.createElement */
 function Counter() {
-  const [state, setState] = Didact.useState(1);
+  const [state, setState] = Didact.useState<number>(1);
   return (
     <h1 onClick={() => {
       cl('h1.onClick')
@@ -23,5 +21,5 @@ function Counter() {
   );
 }
 const element = <Counter />;
-const container = document.getElementById("root");
+const container = document.getElementById("root")!;
 Didact.render(element, container);

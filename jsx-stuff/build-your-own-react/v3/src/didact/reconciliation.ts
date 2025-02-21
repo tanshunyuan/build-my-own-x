@@ -1,5 +1,7 @@
 import { cl } from "../helper"
-import { createDom } from "./render"
+import { createDom, Fiber } from "./render"
+
+type CustomProps = Partial<HTMLElement> & Record<string, string>
 
 // goals of a fiber tree
 // 1. Easy to find the next unit of work as each fiber is linked to its child, next sibling and parent
@@ -9,7 +11,7 @@ import { createDom } from "./render"
 
 
 const commitRoot = () => {
-  deletions.forEach(commitWork)
+  window.deletions && window.deletions.forEach(commitWork)
   /**@description recursively append all the nodes to the dom */
   commitWork(window.wipRoot.child)
   window.currentRoot = window.wipRoot
@@ -17,16 +19,16 @@ const commitRoot = () => {
 }
 
 /**@description check if it's events */
-const isEvent = key => key.startsWith('on')
+const isEvent = (key: string) => key.startsWith('on')
 
 /**@description skip over children & events as it's a special prop */
 const isProperty = (key: string) => key !== 'children' && !isEvent(key)
 
 /**@description compare against prev and incoming Props to determine new props */
-const isNewProps = (prev, next) => key => prev[key] !== next[key]
+const isNewProps = (prev: CustomProps, next: CustomProps) => (key: string) => prev[key] !== next[key]
 
 /**@description compare against prev and incoming Props to determine old props  */
-const isOldProps = (prev, next) => key => !(key in next)
+const isOldProps = (_: CustomProps, next: CustomProps) => (key: string) => !(key in next)
 
 
 /**
@@ -34,7 +36,7 @@ const isOldProps = (prev, next) => key => !(key in next)
  * Given a dom node, compare it's previous props
  * against the incoming props
  */
-export const updateDom = (dom, prevProps, nextProps) => {
+export const updateDom = (dom: any, prevProps: CustomProps, nextProps: CustomProps) => {
   cl(`updateDom.dom ==> `, dom)
   //Remove old or changed event listeners
   Object.keys(prevProps)
@@ -87,21 +89,25 @@ export const updateDom = (dom, prevProps, nextProps) => {
     })
 }
 
-const commitWork = (fiber) => {
+const commitWork = (fiber: Fiber) => {
   cl('commitWork.fiber ==> ', fiber)
   if (!fiber) return
 
   let domParentFiber = fiber.parent
-  while (!domParentFiber.dom) {
+
+  while (domParentFiber && !domParentFiber.dom) {
     domParentFiber = domParentFiber.parent
   }
+
+  if (!domParentFiber) return
   const domParent = domParentFiber.dom
 
   if (fiber.effectTag === "PLACEMENT" && fiber.dom !== null) {
     domParent.appendChild(fiber.dom)
   } else if (
     fiber.effectTag === "UPDATE" &&
-    fiber.dom !== null
+    fiber.dom !== null && 
+    fiber.alternate !== null
   ) {
     updateDom(
       fiber.dom,
@@ -112,15 +118,15 @@ const commitWork = (fiber) => {
     commitDeletion(fiber, domParent)
   }
 
-  commitWork(fiber.child)
-  commitWork(fiber.sibling)
+  if(fiber.child) commitWork(fiber.child)
+  if(fiber.sibling) commitWork(fiber.sibling)
 }
 
-const commitDeletion = (fiber, domParent) => {
+const commitDeletion = (fiber: Fiber, domParent: any) => {
   if (fiber.dom) {
     domParent.removeChild(fiber.dom)
   } else {
-    commitDeletion(fiber.child, domParent)
+    if(fiber.child) commitDeletion(fiber.child, domParent)
   }
 }
 
@@ -177,20 +183,20 @@ const performUnitOfWork = (fiber: any) => {
   }
 }
 
-const updateFunctionComponent = (fiber) => {
+const updateFunctionComponent = (fiber: Fiber) => {
   /**
    * @description 
    * A functional component doesn't have a dom node and the children comes from
    * running the function instead of the `props` attribute
    */
-  gWipFiber = fiber
-  hookIndex = 0
-  gWipFiber.hooks = []
+  window.gWipFiber = fiber
+  window.hookIndex = 0
+  window.gWipFiber.hooks = []
   const children = [fiber.type(fiber.props)]
   reconcileChildren(fiber, children)
 }
 
-const updateHostComponent = (fiber) => {
+const updateHostComponent = (fiber: Fiber) => {
   /**@step1 add element to the DOM */
   if (!fiber.dom) {
     fiber.dom = createDom(fiber)
@@ -202,11 +208,11 @@ const updateHostComponent = (fiber) => {
 }
 
 
-const reconcileChildren = (wipFiber, elements) => {
+const reconcileChildren = (wipFiber: Fiber, elements: any[]) => {
   cl('reconcileChildren args ==> ', { wipFiber, elements })
   let index = 0
   let oldFiber = wipFiber.alternate && wipFiber.alternate.child
-  let prevSibling = null
+  let prevSibling: Fiber | null = null
   cl('reconcileChildren ==> ', {
     index,
     oldFiber,
@@ -225,7 +231,7 @@ const reconcileChildren = (wipFiber, elements) => {
    */
   while (index < elements.length || oldFiber != null) {
     const element = elements[index]
-    let newFiber = null
+    let newFiber: Fiber | null = null
 
     /**@start compare oldFiber to element */
     const sameType = oldFiber && element && oldFiber.type === element.type
@@ -238,14 +244,17 @@ const reconcileChildren = (wipFiber, elements) => {
     if (sameType) {
       newFiber = {
         // keep the type
-        type: oldFiber.type,
+        type: oldFiber?.type,
         // change the props
         props: element.props,
         // keep the dom node
-        dom: oldFiber.dom,
+        dom: oldFiber?.dom,
         parent: wipFiber,
         alternate: oldFiber,
         effectTag: "UPDATE",
+        child: null,
+        sibling: null,
+        hooks: null
       }
     }
 
@@ -262,6 +271,9 @@ const reconcileChildren = (wipFiber, elements) => {
         parent: wipFiber,
         alternate: null,
         effectTag: "PLACEMENT",
+        child: null,
+        sibling: null,
+        hooks: null
       }
     }
 
@@ -270,9 +282,9 @@ const reconcileChildren = (wipFiber, elements) => {
      * If types are different & oldFiber exists
      * need to remove the old node
      */
-    if (oldFiber && !sameType) {
+    if (oldFiber && !sameType && window.deletions) {
       oldFiber.effectTag = "DELETION"
-      deletions.push(oldFiber)
+      window.deletions.push(oldFiber)
     }
     /**@end compare oldFiber to element */
 
@@ -284,7 +296,7 @@ const reconcileChildren = (wipFiber, elements) => {
     if (index === 0) {
       // first child is always at the 0th index
       wipFiber.child = newFiber
-    } else if (element) {
+    } else if (element && prevSibling) {
       prevSibling.sibling = newFiber
     }
 

@@ -38,11 +38,11 @@ type Container = HTMLElement | Text
 // }
 
 /**@see {@link https://github.dev/facebook/react/blob/ff6283340a10bb72ad0fb16ca027606a9ea1e67c/packages/react-reconciler/src/ReactInternalTypes.js} */
-type Fiber = {
+export type Fiber = {
   dom: any
-  effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETE'
-  type: any
-  elementType: any
+  effectTag: 'PLACEMENT' | 'UPDATE' | 'DELETION'
+  type: 'TEXT_ELEMENT' | any
+  props: any
 
   /**
    * @description
@@ -53,9 +53,12 @@ type Fiber = {
    */
   alternate: Fiber | null
 
+  parent: Fiber | null
+
   // Singly Linked List Tree structure
   child: Fiber | null
   sibling: Fiber | null
+  hooks: any[] | null
 }
 
 export const render = (element: ElementNode, container: Container) => {
@@ -77,7 +80,7 @@ export const render = (element: ElementNode, container: Container) => {
   })
 }
 
-export const createDom = (fiber) => {
+export const createDom = (fiber: Fiber) => {
   // converting virtualDOM type to DOM
   const dom = fiber.type === 'TEXT_ELEMENT' ?
     document.createTextNode('') :
