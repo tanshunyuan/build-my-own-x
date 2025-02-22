@@ -56,6 +56,7 @@ export const useState = <S = undefined>(initial: S): [S, Dispatch<SetStateAction
     window.gWipFiber.hooks.push(hook)
   }
 
+  // gotta rmb 0 and null evaluate to false FFS
   if (window.hookIndex !== null) {
     window.hookIndex++
   }
