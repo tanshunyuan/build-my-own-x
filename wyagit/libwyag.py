@@ -163,18 +163,19 @@ def object_find(repo, name, fmt=None, follow=True):
     """
     return name
 
-argsp = argsubparsers.add_parser("ls-tree", help="Pretty-print a tree object.")
-argsp.add_argument("-r",
-                   dest="recursive",
-                   action="store_true",
-                   help="Recurse into sub-trees")
 
-argsp.add_argument("tree",
-                   help="A tree-ish object.")
+argsp = argsubparsers.add_parser("ls-tree", help="Pretty-print a tree object.")
+argsp.add_argument(
+    "-r", dest="recursive", action="store_true", help="Recurse into sub-trees"
+)
+
+argsp.add_argument("tree", help="A tree-ish object.")
+
 
 def cmd_ls_tree(args):
     repo = repo_find()
     ls_tree(repo, args.tree, args.recursive)
+
 
 def ls_tree(repo, ref, recursive=None, prefix=""):
     sha = object_find(repo, ref, fmt=b"tree")
@@ -185,35 +186,44 @@ def ls_tree(repo, ref, recursive=None, prefix=""):
             type = item.mode[0:1]
         else:
             type = item.mode[0:2]
-        
-        match type: # Determine the type.
-            case b'04': type = "tree"
-            case b'10': type = "blob" # A regular file.
-            case b'12': type = "blob" # A symlink. Blob contents is link target.
-            case b'16': type = "commit" # A submodule
-            case _: raise Exception(f"Weird tree leaf mode {item.mode}")
 
-        if not (recursive and type=='tree'): # This is a leaf
-            print(f"{'0' * (6 - len(item.mode)) + item.mode.decode("ascii")} {type} {item.sha}\t{os.path.join(prefix, item.path)}")
-        else: # This is a branch, recurse
+        match type:  # Determine the type.
+            case b"04":
+                type = "tree"
+            case b"10":
+                type = "blob"  # A regular file.
+            case b"12":
+                type = "blob"  # A symlink. Blob contents is link target.
+            case b"16":
+                type = "commit"  # A submodule
+            case _:
+                raise Exception(f"Weird tree leaf mode {item.mode}")
+
+        if not (recursive and type == "tree"):  # This is a leaf
+            print(
+                f"{'0' * (6 - len(item.mode)) + item.mode.decode('ascii')} {type} {item.sha}\t{os.path.join(prefix, item.path)}"
+            )
+        else:  # This is a branch, recurse
             ls_tree(repo, item.sha, recursive, os.path.join(prefix, item.path))
-            
-argsp = argsubparsers.add_parser("checkout", help="Checkout a commit inside of a directory.")
 
-argsp.add_argument("commit",
-                   help="The commit or tree to checkout.")
 
-argsp.add_argument("path",
-                   help="The EMPTY directory to checkout on.")
+argsp = argsubparsers.add_parser(
+    "checkout", help="Checkout a commit inside of a directory."
+)
+
+argsp.add_argument("commit", help="The commit or tree to checkout.")
+
+argsp.add_argument("path", help="The EMPTY directory to checkout on.")
+
 
 def cmd_checkout(args):
     repo = repo_find()
     obj = object_read(repo, object_find(repo, args.commit))
 
     # If the object is a commit, we grab its tree
-    if obj.fmt == b'commit':
-        obj = object_read(repo, obj.kvlm[b'tree'].decode('ascii'))
-    
+    if obj.fmt == b"commit":
+        obj = object_read(repo, obj.kvlm[b"tree"].decode("ascii"))
+
     # Verify that path is an empty directory
     # @WHY
     if os.path.exists(args.path):
@@ -226,18 +236,41 @@ def cmd_checkout(args):
 
     tree_checkout(repo, obj, os.path.realpath(args.path))
 
+
 def tree_checkout(repo, tree, path):
     for item in tree.items:
         obj = object_read(repo, item.sha)
         dest = os.path.join(path, item.path)
 
-        if obj.fmt == b'tree':
+        if obj.fmt == b"tree":
             os.mkdir(dest)
             tree_checkout(repo, obj, dest)
-        elif obj.fmt == b'blob':
+        elif obj.fmt == b"blob":
             # @TODO Support symlinks (identified by mode 12****)
-            with open(dest, 'wb') as f:
+            with open(dest, "wb") as f:
                 f.write(obj.blobdata)
+
+
+argsp = argsubparsers.add_parser("show-ref", help="List references.")
+
+
+def cmd_show_ref(args):
+    repo = repo_find()
+    refs = ref_list(repo)
+    show_ref(repo, refs, prefix="refs")
+
+
+def show_ref(repo, refs, with_hash=True, prefix=""):
+    if prefix:
+        prefix = prefix + "/"
+    for k, v in refs.items():
+        if type(v) == str and with_hash:
+            print(f"{v} {prefix}{k}")
+        elif type(v) == str:
+            print(f"{prefix}{k}")
+        else:
+            show_ref(repo, v, with_hash=with_hash, prefix=f"{prefix} {k}")
+
 
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
@@ -722,6 +755,42 @@ class GitTree(GitObject):
         self.items = list()
 
 
+def ref_resolve(repo, ref):
+    path = repo_file(repo, ref)
+
+    # Sometimes, an indirect reference may be broken.  This is normal
+    # in one specific case: we're looking for HEAD on a new repository
+    # with no commits.  In that case, .git/HEAD points to "ref:
+    # refs/heads/main", but .git/refs/heads/main doesn't exist yet
+    # (since there's no commit for it to refer to).
+    if not os.path.isfile(path):
+        return None
+
+    with open(path, "r") as fp:
+        data = fp.read()[:-1]
+        # Drop final \n ^^^^^
+
+    # Used to identify: ref: refs/remotes/origin/master from the file
+    if data.startswith("ref: "):
+        return ref_resolve(repo, data[5:])
+    else:
+        return data
+
+
+def ref_list(repo, path=None):
+    if not path:
+        path = repo_dir(repo, "refs")
+    ret = dict()
+
+    for f in sorted(os.listdir(path)):
+        can = os.path.join(path, f)
+        if os.path.isdir(can):
+            ret[f] = ref_list(repo, can)
+        else:
+            ret[f] = ref_resolve(repo, can)
+    return ret
+
+
 # Things to add into anki:
 # 1. How are git files named? The name of a git file is mathematically derived from it's content
 # 2. you don’t modify a file in git, you create a new file in a different location
@@ -748,3 +817,6 @@ class GitTree(GitObject):
 # 15. What's the difference between a space and 0x00? space is the delimeter between a key-value pair, whereas 0x00 is a null byte that separates header from content
 # 16. How is a tree object formatted? [mode] space [path] 0x00 [sha-1]
 # 17. What does a tree object represent? A folder
+# 18. What is a indirect reference? A ref referencing another ref. E.g. ref:path/to/other/ref
+# 19. What is a direct reference? A ref with a SHA-1 object
+# 20. What is a ref? It's a human-readable name that represent a object hash or other refs
