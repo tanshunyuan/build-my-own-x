@@ -9,6 +9,7 @@ import os
 import re
 import sys
 import zlib  # git compresses items to zlib
+from logging import log
 
 argparser = argparse.ArgumentParser(description="The stupidest content tracker")
 # Handle subcommands: git info -> main subcommand
@@ -27,34 +28,36 @@ argsp.add_argument(
     help="Where to create the repository.",
 )
 
+
 def cmd_init(args):
     repo_create(args.path)
 
-argsp = argsubparsers.add_parser("cat-file", help="Provide content of repository objects")
+
+argsp = argsubparsers.add_parser(
+    "cat-file", help="Provide content of repository objects"
+)
 argsp.add_argument(
     "type",
     metavar="type",
     choices=["blob", "commit", "tag", "tree"],
-    help="Specify the type"
+    help="Specify the type",
 )
-argsp.add_argument(
-    "object",
-    metavar="object",
-    help="The object to display"
-)
+argsp.add_argument("object", metavar="object", help="The object to display")
+
 
 def cmd_cat_file(args):
     repo = repo_find()
     cat_file(repo, args.object, fmt=args.type.encode())
 
+
 def cat_file(repo, obj, fmt=None):
     obj = object_read(repo, object_find(repo, obj, fmt=fmt))
     sys.stdout.buffer.write(obj.serialize())
 
+
 # how does this keeps getting reassigned?
 argsp = argsubparsers.add_parser(
-    "hash-object",
-    help="Compute object ID and optionally creates a blob from a file"
+    "hash-object", help="Compute object ID and optionally creates a blob from a file"
 )
 
 argsp.add_argument(
@@ -63,45 +66,97 @@ argsp.add_argument(
     dest="type",
     choices=["blob", "commit", "tag", "tree"],
     default="blob",
-    help="Specify the type"
+    help="Specify the type",
 )
 
 argsp.add_argument(
     "-w",
     dest="write",
     action="store_true",
-    help="Actually write the object into the database"
+    help="Actually write the object into the database",
 )
 
-argsp.add_argument(
-    "path",
-    help="Read object from <file>"
-)
+argsp.add_argument("path", help="Read object from <file>")
+
+argsp = argsubparsers.add_parser("log", help="Display history of a given commit.")
+argsp.add_argument("commit", default="HEAD", nargs="?", help="Commit to start at.")
+
+
+def cmd_log(args):
+    repo = repo_find()
+    print("digraph wyaglog{")
+    print("  node[shape=rect]")
+    log_graphviz(repo, object_find(repo, args.commit), set())
+    print("}")
+
+
+# Optional
+def log_graphviz(repo, sha, seen):
+    """
+    Don't really need to care too much about this as it's just a way to visualise the commit
+    """
+
+    if sha in seen:
+        return
+    seen.add(sha)
+
+    commit = object_read(repo, sha)
+    message = commit.kvlm[None].decode("utf8").strip()
+    message = message.replace("\\", "\\\\")
+    message = message.replace('"', '\\"')
+
+    if "\n" in message:  # Keep only the first line
+        message = message[: message.index("\n")]
+
+    print(f'  c_{sha} [label="{sha[0:7]}: {message}"]')
+    assert commit.fmt == b"commit"
+
+    if not b"parent" in commit.kvlm.keys():
+        # Base case: the initial commit.
+        return
+
+    parents = commit.kvlm[b"parent"]
+
+    if type(parents) != list:
+        parents = [parents]
+
+    for p in parents:
+        p = p.decode("ascii")
+        print(f"  c_{sha} -> c_{p};")
+        log_graphviz(repo, p, seen)
+
 
 def cmd_hash_object(args):
     repo = None
     if args.write:
         repo = repo_find()
-    
+
     with open(args.path, "rb") as fd:
         sha = object_hash(fd, args.type.encode(), repo)
         print(sha)
+
 
 def object_hash(fd, fmt, repo=None):
     """
     Hash object, writing it to repo if provided
     """
     data = fd.read()
-    
+
     # Choose constructor according to fmt argument
     match fmt:
-        case b'commit' : obj=GitCommit(data)
-        case b'tree'   : obj=GitTree(data)
-        case b'tag'    : obj=GitTag(data)
-        case b'blob'   : obj=GitBlob(data)
-        case _: raise Exception(f"Unknown type {fmt}!")
+        case b"commit":
+            obj = GitCommit(data)
+        case b"tree":
+            obj = GitTree(data)
+        case b"tag":
+            obj = GitTag(data)
+        case b"blob":
+            obj = GitBlob(data)
+        case _:
+            raise Exception(f"Unknown type {fmt}!")
 
     return object_write(obj, repo)
+
 
 def object_find(repo, name, fmt=None, follow=True):
     """
@@ -109,25 +164,42 @@ def object_find(repo, name, fmt=None, follow=True):
     """
     return name
 
+
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
-        case "add"          : cmd_add(args)
-        case "cat-file"     : cmd_cat_file(args)
-        case "check-ignore" : cmd_check_ignore(args)
-        case "checkout"     : cmd_checkout(args)
-        case "commit"       : cmd_commit(args)
-        case "hash-object"  : cmd_hash_object(args)
-        case "init"         : cmd_init(args)
-        case "log"          : cmd_log(args)
-        case "ls-files"     : cmd_ls_files(args)
-        case "ls-tree"      : cmd_ls_tree(args)
-        case "rev-parse"    : cmd_rev_parse(args)
-        case "rm"           : cmd_rm(args)
-        case "show-ref"     : cmd_show_ref(args)
-        case "status"       : cmd_status(args)
-        case "tag"          : cmd_tag(args)
-        case _              : print("Bad command.")
+        case "add":
+            cmd_add(args)
+        case "cat-file":
+            cmd_cat_file(args)
+        case "check-ignore":
+            cmd_check_ignore(args)
+        case "checkout":
+            cmd_checkout(args)
+        case "commit":
+            cmd_commit(args)
+        case "hash-object":
+            cmd_hash_object(args)
+        case "init":
+            cmd_init(args)
+        case "log":
+            cmd_log(args)
+        case "ls-files":
+            cmd_ls_files(args)
+        case "ls-tree":
+            cmd_ls_tree(args)
+        case "rev-parse":
+            cmd_rev_parse(args)
+        case "rm":
+            cmd_rm(args)
+        case "show-ref":
+            cmd_show_ref(args)
+        case "status":
+            cmd_status(args)
+        case "tag":
+            cmd_tag(args)
+        case _:
+            print("Bad command.")
 
 
 class GitRepository(object):
@@ -275,14 +347,16 @@ def repo_find(path=".", required=True):
     Repo root: ~/Documents/MyProject
     Child directory: ~/Documents/MyProject/src/tui/frames/mainview/
     """
-    path = os.path.realpath(path) # realpath resolves symlinks, relative path and returns a abs path
+    path = os.path.realpath(
+        path
+    )  # realpath resolves symlinks, relative path and returns a abs path
 
     # Recursively finds till a .git folder is hit
     is_git_dir = os.path.isdir(os.path.join(path, ".git"))
     if is_git_dir:
         return GitRepository(path)
-    
-    parent = os.path.realpath(os.path.join(path), "..")
+
+    parent = os.path.realpath(os.path.join(path, ".."))
 
     if parent == path:
         # Bottom case
@@ -295,17 +369,18 @@ def repo_find(path=".", required=True):
 
     # Recursive case
     return repo_find(parent, required)
-        
-class GitObject (object):
+
+
+class GitObject(object):
     """
     Generic GitObject class sharing common fns across objects
     """
+
     def __init__(self, data=None):
         if data != None:
             self.deserialize(data)
         else:
             self.init()
-    
 
     def serialize(self, repo):
         """
@@ -321,11 +396,12 @@ class GitObject (object):
         raise Exception("Unimplemented!")
 
     def init(self):
-        pass # Just do nothing. This is a reasonable default!
+        pass  # Just do nothing. This is a reasonable default!
+
 
 def object_read(repo, sha):
     """
-    Read object sha from Git repository repo. Return a 
+    Read object sha from Git repository repo. Return a
     GitObject whose exact tyep depends on the object
     """
 
@@ -335,41 +411,46 @@ def object_read(repo, sha):
 
     if not os.path.isfile(path):
         return None
-    
+
     # rb = read binary
-    with open (path, "rb") as f:
+    with open(path, "rb") as f:
         raw = zlib.decompress(f.read())
-       
+
         # Read object type
-        x = raw.find(b' ')
+        x = raw.find(b" ")
         fmt = raw[0:x]
-        
+
         # Read and validate object size
-        y = raw.find(b'\x00', x)
-        size = int(raw[x:y].decode('ascii'))
-        if size != len(raw)-y-1:
+        y = raw.find(b"\x00", x)
+        size = int(raw[x:y].decode("ascii"))
+        if size != len(raw) - y - 1:
             raise Exception(f"Malformed object {sha}: bad length")
-        
+
         # Pick constructor
         # b'<COMMIT_TYPE>'
         match fmt:
-            case b'commit' : c=GitCommit
-            case b'tree'   : c=GitTree
-            case b'tag'    : c=GitTag
-            case b'blob'   : c=GitBlob
+            case b"commit":
+                c = GitCommit
+            case b"tree":
+                c = GitTree
+            case b"tag":
+                c = GitTag
+            case b"blob":
+                c = GitBlob
             case _:
-                raise Exception(f"Unknown type {fmt.decode("ascii")} for object {sha}")
+                raise Exception(f"Unknown type {fmt.decode('ascii')} for object {sha}")
 
         # Call constructor and return object
-        return c(raw[y+1:])
+        return c(raw[y + 1 :])
+
 
 def object_write(obj, repo=None):
     # zlib(hash(header + serialise(file)))
-    
+
     # Serialize object data
     data = obj.serialize()
     # Add header
-    result = obj.fmt + b' ' + str(len(data)).encode() + b'\x00' + data
+    result = obj.fmt + b" " + str(len(data)).encode() + b"\x00" + data
     # Compute hash
     sha = hashlib.sha1(result).hexdigest()
 
@@ -378,21 +459,109 @@ def object_write(obj, repo=None):
         path = repo_file(repo, "objects", sha[0:2], sha[2:], mkdir=True)
 
         if not os.path.exists(path):
-            with open(path, 'wb') as f:
+            with open(path, "wb") as f:
                 # Compress and write
                 f.write(zlib.compress(result))
-    
+
     return sha
 
+
 class GitBlob(GitObject):
-    fmt=b'blob'
-    
+    fmt = b"blob"
+
     def serialize(self):
         return self.blobdata
-    
+
     def deserialize(self, data):
         self.blobdata = data
-        
+
+
+# kvlm = key-value list with message
+# The third argument: dct=None is NOT declared as dct=dict()
+# as all call to the function will endless grow with the SAME dict
+def kvlm_parse(raw, start=0, dct=None):
+    if not dct:
+        dct = dict()
+
+    # Search for the next space and newline
+    space = raw.find(b" ", start)
+    new_line = raw.find(b"\n", start)
+
+    # If a space appears before newline, we have a keyword. E.g. tree <HASH>
+    # Otherwise, it's the final message, which we just read to the eof
+
+    # Base Case
+    # =========
+    # Return -1 if there's no space at all
+    # If newline appears first, we assume a blank line.
+    # A blank line means the remainder of the data is the message.
+    # We store it in the dictionary, with None as the key, and return
+    if (space < 0) or (new_line < space):
+        assert new_line == start
+        dct[None] = raw[start + 1 :]
+        return dct
+
+    # Recursive case
+    # ==============
+    # Read a key-value pair and recurse for the next
+    key = raw[start:space]
+
+    # Find the end of the value. Continuation line begin with a space,
+    # so we loop until we find a new line ('\n') not followed by a space
+    end = start
+    while True:
+        end = raw.find(b"\n", end + 1)
+        if raw[end + 1] != ord(" "):
+            break
+
+    # Grab the value
+    # Also, drop the leading space on continuation lines
+    value = raw[space + 1 : end].replace(b"\n", b"\n")
+
+    # Don't overwrite existing data contents
+    if key in dct:
+        if type(dct[key]) == list:
+            dct[key].append(value)
+        else:
+            dct[key] = [dct[key], value]
+    else:
+        dct[key] = value
+
+    return kvlm_parse(raw, start=end + 1, dct=dct)
+
+
+def kvlm_serialize(kvlm):
+    ret = b""
+
+    for k in kvlm.keys():
+        # Skip the message itself
+        if k == None:
+            continue
+        val = kvlm[k]
+
+        # Normalize to a list
+        if type(val) != list:
+            val = [val]
+
+        for v in val:
+            ret += k + b" " + (v.replace(b"\n", b"\n")) + b"\n"
+
+    ret += b"\n" + kvlm[None]
+    return ret
+
+
+class GitCommit(GitObject):
+    fmt = b"commit"
+
+    def deserialize(self, data):
+        self.kvlm = kvlm_parse(data)
+
+    def serialize(self):
+        return kvlm_serialize(self.kvlm)
+
+    def init(self):
+        self.kvlm = dict()
+
 
 # Things to add into anki:
 # 1. How are git files named? The name of a git file is mathematically derived from it's content
@@ -409,3 +578,11 @@ class GitBlob(GitObject):
 # 9. What compression format is used for git files? zlib
 # 10. What is extracted out of the decompressed data?  we extract the two header components: the object type and its size
 # 11. What is a GitBlob? The content of every file the user put in git
+# 12. How is a commit object formatted?
+#       - On a line, if the first space is surrounded by two characters. The left will be the key and the anything to the right is the value before '\n'
+#       - If there are multi lines a space at the start is required. And this leading space needs to be removed. The terminal point of this is when the parser
+#         doesn't detect a leading space anymore on a new line
+# 13. Does a python HashMap preserve order insertion? Yes.
+# 14. What are the two rules pertaining to object identity in Git?
+#       - The same name will always refer to the same object
+#       - The same object will always be reffered by the same name. Which means there can't be two equivalent object under different name
