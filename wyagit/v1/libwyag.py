@@ -10,6 +10,8 @@ import re
 import sys
 import zlib  # git compresses items to zlib
 
+# from loguru import logger
+
 argparser = argparse.ArgumentParser(description="The stupidest content tracker")
 # Handle subcommands: git info -> main subcommand
 argsubparsers = argparser.add_subparsers(
@@ -161,6 +163,7 @@ def object_find(repo, name, fmt=None, follow=True):
     """
     Name resolution fn
     """
+    print(f'object_find -> repo: {repo}; name: {name}; fmt: {fmt}; follow: {follow}')
     sha = object_resolve(repo, name)
 
     if not sha:
@@ -172,6 +175,7 @@ def object_find(repo, name, fmt=None, follow=True):
         )
 
     while True:
+        print(f'object_find.while True.obj -> repo: {repo}; sha: {sha}')
         obj = object_read(repo, sha)
         #     ^^^^^^^^^^^ < this is a bit agressive: we're reading
         # the full object just to get its type.  And we're doing
@@ -349,6 +353,33 @@ def show_ref(repo, refs, with_hash=True, prefix=""):
             show_ref(repo, v, with_hash=with_hash, prefix=f"{prefix} {k}")
 
 
+argsp = argsubparsers.add_parser(
+    "rev-parse", help="Parse revision (or other objects) identifiers"
+)
+
+argsp.add_argument(
+    "--wyag-type",
+    metavar="type",
+    dest="type",
+    choices=["blob", "commit", "tag", "tree"],
+    default=None,
+    help="Specify the expected type",
+)
+
+argsp.add_argument("name", help="The name to parse")
+
+
+def cmd_rev_parse(args):
+    if args.type:
+        fmt = args.type.encode()
+    else:
+        fmt = None
+
+    repo = repo_find()
+
+    print(object_find(repo, args.name, fmt, follow=True))
+
+
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)
     match args.command:
@@ -426,6 +457,7 @@ class GitRepository(object):
 # E.g. repo_path(repo, "objects", "df", "4ec9fc2ad990cb9da906a95a6eda6627d7b7b0")
 def repo_path(repo, *path):
     """Compute path under repo's gitdir AKA get the path"""
+    print(f"repo_path -> repo:{repo} ; path{path}")
     return os.path.join(repo.gitdir, *path)
 
 
@@ -435,6 +467,7 @@ def repo_file(repo, *path, mkdir=False):
     Same as repo_path, but create dirname(*path) if absent.
     For example, repo_file(r, \"refs\", \"remotes\", \"origin\", \"HEAD\") will create .git/refs/remotes/origin.
     """
+    print(f"repo_file -> repo:{repo}; path:{path}; mkdir:{mkdir}")
     if repo_dir(repo, *path[:-1], mkdir=mkdir):  # creates the directory
         return repo_path(repo, *path)  # return the path
 
@@ -444,6 +477,7 @@ def repo_dir(repo, *path, mkdir=False):
     Same as repo_path, but validates *path and creates a directory
     if mkdir is True
     """
+    print(f"repo_dir -> repo:{repo}; path:{path}; mkdir:{mkdir}")
 
     path = repo_path(repo, *path)
     if os.path.exists(path):
@@ -589,6 +623,7 @@ def object_read(repo, sha):
     GitObject whose exact tyep depends on the object
     """
 
+    print(f"object_read -> repo: {repo}; sha: {sha}")
     # sha[0:2] - directory of file
     # sha[:2] - name of the file
     path = repo_file(repo, "objects", sha[0:2], sha[:2])
