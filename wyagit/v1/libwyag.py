@@ -1553,6 +1553,186 @@ def rm(repo, paths: list[str], delete=True, skip_missing=False):
     index.entries = kept_entries
     index_write(repo, index)
 
+argsp = argsubparsers.add_parser("add", help = "Add files contents to the index.")
+argsp.add_argument("path", nargs="+", help="Files to add")
+
+def cmd_add(args):
+    repo = repo_find()
+    add(repo, args.path)
+
+def add(repo, paths, delete=True, skip_missing=False):
+    # First remove all paths from the index, if they exist.
+    rm (repo, paths, delete=False, skip_missing=True)
+
+    worktree = repo.worktree + os.sep
+
+    # Convert the paths to pairs: (absolute, relative_to_worktree).
+    # Also delete them from the index if they're present.
+    clean_paths = set()
+    for path in paths:
+        abspath = os.path.abspath(path)
+        if not (abspath.startswith(worktree) and os.path.isfile(abspath)):
+            raise Exception(f"Not a file, or outside the worktree: {paths}")
+        relpath = os.path.relpath(abspath, repo.worktree)
+        clean_paths.add((abspath,  relpath))
+
+    # Find and read the index.  It was modified by rm.  (This isn't
+    # optimal, good enough for wyag!)
+    #
+    # @FIXME, though: we could just move the index through
+    # commands instead of reading and writing it over again.
+    index = index_read(repo)
+
+    for (abspath, relpath) in clean_paths:
+        with open(abspath, "rb") as fd:
+            sha = object_hash(fd, b"blob", repo)
+
+            stat = os.stat(abspath)
+
+            ctime_s = int(stat.st_ctime)
+            ctime_ns = stat.st_ctime_ns % 10**9
+            mtime_s = int(stat.st_mtime)
+            mtime_ns = stat.st_mtime_ns % 10**9
+
+            entry = GitIndexEntry(ctime=(ctime_s, ctime_ns), mtime=(mtime_s, mtime_ns), dev=stat.st_dev, ino=stat.st_ino,
+                                  mode_type=0b1000, mode_perms=0o644, uid=stat.st_uid, gid=stat.st_gid,
+                                  fsize=stat.st_size, sha=sha, flag_assume_valid=False,
+                                  flag_stage=False, name=relpath)
+            index.entries.append(entry)
+
+    # Write the index back
+    index_write(repo, index)
+
+argsp = argsubparsers.add_parser("commit", help="Record changes to the repository.")
+
+argsp.add_argument("-m",
+                   metavar="message",
+                   dest="message",
+                   help="Message to associate with this commit.")
+
+def gitconfig_read():
+    xdg_config_home = os.environ["XDG_CONFIG_HOME"] if "XDG_CONFIG_HOME" in os.environ else "~/.config"
+    configfiles = [
+        os.path.expanduser(os.path.join(xdg_config_home, "git/config")),
+        os.path.expanduser("~/.gitconfig")
+    ]
+
+    config = configparser.ConfigParser()
+    config.read(configfiles)
+    return config
+
+def gitconfig_user_get(config):
+    if "user" in config:
+        if "name" in config["user"] and "email" in config["user"]:
+            return f"{config['user']['name']} <{config['user']['email']}>"
+    return None
+
+def tree_from_index(repo, index):
+    contents = dict()
+    contents[""] = list()
+
+    # Enumerate entries, and turn them into a dictionary where keys
+    # are directories, and values are lists of directory contents.
+    for entry in index.entries:
+        dirname = os.path.dirname(entry.name)
+
+        # We create all dictonary entries up to root ("").  We need
+        # them *all*, because even if a directory holds no files it
+        # will contain at least a tree.
+        key = dirname
+        while key != "":
+            if not key in contents:
+                contents[key] = list()
+            key = os.path.dirname(key)
+
+        # For now, simply store the entry in the list.
+        contents[dirname].append(entry)
+
+    # Get keys (= directories) and sort them by length, descending.
+    # This means that we'll always encounter a given path before its
+    # parent, which is all we need, since for each directory D we'll
+    # need to modify its parent P to add D's tree.
+    sorted_paths = sorted(contents.keys(), key=len, reverse=True)
+
+    # This variable will store the current tree's SHA-1.  After we're
+    # done iterating over our dict, it will contain the hash for the
+    # root tree.
+    sha = None
+
+    # We ge through the sorted list of paths (dict keys)
+    for path in sorted_paths:
+        # Prepare a new, empty tree object
+        tree = GitTree()
+
+        # Add each entry to our new tree, in turn
+        for entry in contents[path]:
+            # An entry can be a normal GitIndexEntry read from the
+            # index, or a tree we've created.
+            if isinstance(entry, GitIndexEntry): # Regular entry (a file)
+
+                # We transcode the mode: the entry stores it as integers,
+                # we need an octal ASCII representation for the tree.
+                leaf_mode = f"{entry.mode_type:02o}{entry.mode_perms:04o}".encode("ascii")
+                leaf = GitTreeLeaf(mode = leaf_mode, path=os.path.basename(entry.name), sha=entry.sha)
+            else: # Tree.  We've stored it as a pair: (basename, SHA)
+                leaf = GitTreeLeaf(mode = b"040000", path=entry[0], sha=entry[1])
+
+            tree.items.append(leaf)
+
+        # Write the new tree object to the store.
+        sha = object_write(tree, repo)
+
+        # Add the new tree hash to the current dictionary's parent, as
+        # a pair (basename, SHA)
+        parent = os.path.dirname(path)
+        base = os.path.basename(path) # The name without the path, eg main.go for src/main.go
+        contents[parent].append((base, sha))
+
+    return sha
+
+def commit_create(repo, tree, parent, author, timestamp, message):
+    commit = GitCommit() # Create the new commit object.
+    commit.kvlm[b"tree"] = tree.encode("ascii")
+    if parent:
+        commit.kvlm[b"parent"] = parent.encode("ascii")
+
+    # Trim message and add a trailing \n
+    message = message.strip() + "\n"
+    # Format timezone
+    offset = int(timestamp.astimezone().utcoffset().total_seconds())
+    hours = offset // 3600
+    minutes = (offset % 3600) // 60
+    tz = "{}{:02}{:02}".format("+" if offset > 0 else "-", hours, minutes)
+
+    author = author + timestamp.strftime(" %s ") + tz
+
+    commit.kvlm[b"author"] = author.encode("utf8")
+    commit.kvlm[b"committer"] = author.encode("utf8")
+    commit.kvlm[None] = message.encode("utf8")
+
+    return object_write(commit, repo)
+
+def commit_create(repo, tree, parent, author, timestamp, message):
+    commit = GitCommit() # Create the new commit object.
+    commit.kvlm[b"tree"] = tree.encode("ascii")
+    if parent:
+        commit.kvlm[b"parent"] = parent.encode("ascii")
+
+    # Trim message and add a trailing \n
+    message = message.strip() + "\n"
+    # Format timezone
+    offset = int(timestamp.astimezone().utcoffset().total_seconds())
+    hours = offset // 3600
+    minutes = (offset % 3600) // 60
+    tz = "{}{:02}{:02}".format("+" if offset > 0 else "-", hours, minutes)
+
+    author = author + timestamp.strftime(" %s ") + tz
+
+    commit.kvlm[b"author"] = author.encode("utf8")
+    commit.kvlm[b"committer"] = author.encode("utf8")
+    commit.kvlm[None] = message.encode("utf8")
+
+    return object_write(commit, repo)
 # Things to add into anki:
 # 1. How are git files named? The name of a git file is mathematically derived from it's content
 # 2. you don’t modify a file in git, you create a new file in a different location
