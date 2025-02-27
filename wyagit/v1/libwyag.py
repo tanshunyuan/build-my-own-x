@@ -10,7 +10,7 @@ import re
 import sys
 import zlib  # git compresses items to zlib
 
-# from typing import Tuple, Optional, Union, List, str
+from typing import IO
 from loguru import logger
 
 argparser = argparse.ArgumentParser(description="The stupidest content tracker")
@@ -1331,12 +1331,13 @@ def cmd_status_branch(repo):
     else:
         print(f"HEAD detached at {object_find(repo, 'HEAD')}")
 
+
 def tree_to_dict(repo, ref, prefix="") -> dict[str, str]:
     """
     convert HEAD tree to a dict for easy comparison
     """
     ret = dict()
-    tree_sha = object_find(repo, ref, fmt=b'tree')
+    tree_sha = object_find(repo, ref, fmt=b"tree")
     tree = object_read(repo, tree_sha)
 
     for leaf in tree.items:
@@ -1345,7 +1346,7 @@ def tree_to_dict(repo, ref, prefix="") -> dict[str, str]:
         # We read the object to extract its type (this is uselessly
         # expensive: we could just open it as a file and read the
         # first few bytes)
-        is_subtree = leaf.mode.startswith(b'04') #@TOLEARN file modes
+        is_subtree = leaf.mode.startswith(b"04")  # @TOLEARN file modes
 
         # Depending on the type, we either store the path (if it's a
         # blob, so a regular file), or recurse (if it's another tree,
@@ -1355,45 +1356,47 @@ def tree_to_dict(repo, ref, prefix="") -> dict[str, str]:
         else:
             ret[full_path] = leaf.sha
     return ret
-        
+
+
 def cmd_status_head_index(repo, index):
     """
     Show changes between head and index
     """
     print("Changes to be committed: ")
-    
+
     head = tree_to_dict(repo, "HEAD")
     for entry in index.entries:
         if entry.name in head:
             if head[entry.name] != entry.sha:
-                print(' modified:', entry.name)
-            del head[entry.name] # Delete the key; clean up as it's processed
+                print(" modified:", entry.name)
+            del head[entry.name]  # Delete the key; clean up as it's processed
         else:
             print("  added:   ", entry.name)
-    
+
     # Keys still in HEAD are files that we haven't met in the index,
     # and thus have been deleted.
     for entry in head.keys():
         print("  deleted: ", entry)
 
+
 def cmd_status_index_worktree(repo, index):
     """
     Show changes between worktree and index
     """
-    
+
     ignore = gitignore_read(repo)
     gitdir_prefix = repo.gitdir + os.path.sep
     all_files = list()
 
     # Begin walking the filesystem
-    for (root, _, files) in os.walk(repo.worktree, True):
-        if root==repo.gitdir or root.startswith(gitdir_prefix):
+    for root, _, files in os.walk(repo.worktree, True):
+        if root == repo.gitdir or root.startswith(gitdir_prefix):
             continue
         for f in files:
             full_path = os.path.join(root, f)
             rel_path = os.path.relpath(full_path, repo.worktree)
             all_files.append(rel_path)
-    
+
     # We now traverse the index, and compare real files with the cached
     # versions.
 
@@ -1433,7 +1436,123 @@ def cmd_status_index_worktree(repo, index):
         if not check_ignore(ignore, f):
             print(" ", f)
 
-    
+
+def index_write(repo, index):
+    try:
+        f: IO[bytes]
+        with open(repo_file(repo, "index"), "wb") as f:
+            # HEADER
+
+            # Write the magic bytes
+            f.write(b"DIRC")
+            # write version number
+            f.write(index.version.to_bytes(4, "big"))
+            # Write the total number of entries
+            f.write(len(index.entries).to_bytes(4, "big"))
+        # ENTRIES
+
+        idx = 0
+        for e in index.entries:
+            f.write(e.ctime[0].to_bytes(4, "big"))
+            f.write(e.ctime[1].to_bytes(4, "big"))
+            f.write(e.mtime[0].to_bytes(4, "big"))
+            f.write(e.mtime[1].to_bytes(4, "big"))
+            f.write(e.dev.to_bytes(4, "big"))
+            f.write(e.ino.to_bytes(4, "big"))
+
+            # Mode
+            mode = (e.mode_type << 12) | e.mode_perms
+            f.write(mode.to_bytes(4, "big"))
+
+            f.write(e.uid.to_bytes(4, "big"))
+            f.write(e.gid.to_bytes(4, "big"))
+
+            f.write(e.fsize.to_bytes(4, "big"))
+            # @FIXME Convert back to int.
+            f.write(int(e.sha, 16).to_bytes(20, "big"))
+
+            flag_assume_valid = 0x1 << 15 if e.flag_assume_valid else 0
+
+            name_bytes = e.name.encode("utf8")
+            bytes_len = len(name_bytes)
+            if bytes_len >= 0xFFF:
+                name_length = 0xFFF
+            else:
+                name_length = bytes_len
+
+            # We merge back three pieces of data (two flags and the
+            # length of the name) on the same two bytes.
+            f.write((flag_assume_valid | e.flag_stage | name_length).to_bytes(2, "big"))
+
+            # Write back the name, and a final 0x00.
+            f.write(name_bytes)
+            f.write((0).to_bytes(1, "big"))
+
+            idx += 62 + len(name_bytes) + 1
+
+            # Add padding if necessary.
+            if idx % 8 != 0:
+                pad = 8 - (idx % 8)
+                f.write((0).to_bytes(pad, "big"))
+                idx += pad
+    except Exception as e:
+        logger.error(e)
+
+
+argsp = argsubparsers.add_parser(
+    "rm", help="Remove files from the working tree and the index."
+)
+argsp.add_argument("path", nargs="+", help="Files to remove")
+
+
+def cmd_rm(args):
+    repo = repo_find()
+    rm(repo, args.path)
+
+def rm(repo, paths: list[str], delete=True, skip_missing=False):
+    # Find and read repo
+    index = index_read(repo)
+
+    worktree = repo.worktree + os.sep
+
+    abspaths = set()
+    for path in paths:
+        abspath = os.path.abspath(path)
+        if abspath.startswith(worktree):
+            abspaths.add(abspath)
+        else: 
+            raise Exception(f"Cannot remove paths outside of worktree: {paths}")
+    # The list of entries to *keep*, which we will write back to the
+    # index.
+    kept_entries = list()
+    # The list of removed paths, which we'll use after index update
+    # to physically remove the actual paths from the filesystem.
+    remove = list()
+
+    # Now iterate over the list of entries, and remove those whose
+    # paths we find in abspaths.  Preserve the others in kept_entries.
+    for e in index.entries:
+        full_path = os.path.join(repo.worktree, e.name)
+
+        if full_path in abspaths:
+            remove.append(full_path)
+            abspaths.remove(full_path)
+        else:
+            kept_entries.append(e) # Preserve entry
+
+    # If abspaths is empty, it means some paths weren't in the index.
+    if len(abspaths) > 0 and not skip_missing:
+        raise Exception(f"Cannot remove paths not in the index: {abspaths}")
+
+    # Physically delete paths from filesystem.
+    if delete:
+        for path in remove:
+            os.unlink(path)
+
+    # Update the list of entries in the index, and write it back.
+    index.entries = kept_entries
+    index_write(repo, index)
+
 # Things to add into anki:
 # 1. How are git files named? The name of a git file is mathematically derived from it's content
 # 2. you don’t modify a file in git, you create a new file in a different location
