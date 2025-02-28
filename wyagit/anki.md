@@ -1,5 +1,6 @@
 # Things to add into anki:
 
+- Where & how does Git store data? Git stores data in `.git` of your repo, and it's a content-addressable store so key-value pair; object database
 - What is a git object? Git objects are binary file that represent files within a repository. These objects usually lives in '.git/object' and it's identified by a SHA-1 hash which is derived from the contents of the file. Thus git doesn't actually store files
 - What happens when a file in git is modified? Instead of updating a file, a new file is created in a different location
 - Why is git considered a value-value store? As the key isn't separately derived from elsewhere instead it's computed from data of a file
@@ -48,3 +49,4 @@
 # Questions
 - Aren't tags and commit also binary objects? So why is tree object so special?
 - So what exactly is tree objects?
+
