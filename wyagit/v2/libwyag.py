@@ -1,5 +1,6 @@
 from common.parser import main_parsers
 from command.init import cmd_init
+from command.catfile import cmd_cat_file
 import sys
 
 def main(argv=sys.argv[1:]):

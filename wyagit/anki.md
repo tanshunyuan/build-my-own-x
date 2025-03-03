@@ -1,15 +1,23 @@
 # Things to add into anki:
 
 - Where & how does Git store data? Git stores data in `.git` of your repo, and it's a content-addressable store so key-value pair; object database <TODO>
-- What is a git object? Git objects are binary file that represent files within a repository. These objects usually lives in '.git/object' and it's identified by a SHA-1 hash which is derived from the contents of the file. Thus git doesn't actually store files
-- What happens when a file in git is modified? Instead of updating a file, a new file is created in a different location
-- Why is git considered a value-value store? As the key isn't separately derived from elsewhere instead it's computed from data of a file
+- What is a git object? Git objects are binary file that represent working files within a repository. These objects lives in `.git/object`. The object name and path is identified by a SHA-1 hash which is derived from the contents of the file. 
+- What happens when a file content is modified? A new binary file is created at a different path. It's a new object and different hash. 
+- Why is git considered a value-value store? As the key isn't separately derived from elsewhere instead it's computed from data/contents of a file
 - How does git compute the storage path of an object? By calculating the SHA-1 hash of the file contents
 - How is the storage path of an object presented? 
     - The hash is rendered as a lowercase hexadecimal string to be human readable (e.g. 7a10fcfc5e36ef9669c86367c822c88fbba5ca6c)
     - It's split into two parts: First two char which represents the directory name. The rest as the binary file name
     - E.g. 7a10fcfc5e36ef9669c86367c822c88fbba5ca6c -> .git/objects/7a/10fcfc5e36ef9669c86367c822c88fbba5ca6c
-- What are the different types of objects in Git? Files, commit, tree, tags. Almost everythin is stored as an object
+- What is the data format of a object binary file? 
+    - [obj-type] space [content size in ASCII] null [content]. [obj-type] represent the type of object: commit, tree, blob or tag
+    - E.g. Hexadecimal: 63 6f 6d 6d 69 74 20 31  30 38 36 00 74 72 65 65
+      - [obj-type]: 63 6f 6d 6d 69 74 = commit
+      - space: 20 = " "
+      - [content size in ASCII]: 31 30 38 36 = 1086
+      - null: 00 = NULL
+      - content: 74 72 65 65 = tree
+- What are the different types of objects in Git? Files, commit, tree, tags. Almost everything is stored as an object
 - What is a commit? A snapshot of the working tree
 - What is a blob? It's a binary file that contains user data, without any metadata
 - What is a tree? It's a directory listing of blobs and tree.
