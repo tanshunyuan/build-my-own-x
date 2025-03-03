@@ -145,3 +145,4 @@ dist
 
 .venv
 __pycache__/
+wyagit/v2/wyag
