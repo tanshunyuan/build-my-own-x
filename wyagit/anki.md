@@ -61,6 +61,8 @@
 - What is `.git/objects/`?  It's the object store, it contains different object such as trees, commit and blobs
 - What is `.git/refs/`? It's the reference store which contains human-readable references to hashes. It contains two directory: `heads` and `tags`
 - What is `.git/HEAD`? A reference/pointer to the current HEAD
+- What does `git hash-object` do? It converts the target item into a SHA-1 hash based on the type indicated: blob, commit, tree or tag
+- What does `git cat-file` do? It deserialises the contents of a binary file given a SHA-1 Hash
 
 # Ahas
 * When git tracks a file within a repo, it's not actually track a file. Instead they're file objects, and the names are identified by the SHA-1 hash of the file contents

@@ -2,6 +2,7 @@ from common.parser import main_parsers
 from command.init import cmd_init
 from command.catfile import cmd_cat_file
 from command.hashobject import cmd_hash_object
+from command.log import cmd_log
 import sys
 
 def main(argv=sys.argv[1:]):

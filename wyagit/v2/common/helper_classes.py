@@ -7,6 +7,7 @@ import zlib
 import hashlib
 import io
 
+
 from typing import BinaryIO
 
 
@@ -91,6 +92,19 @@ class GitBlob(GitObject):
 
     def deserialize(self, data):
         self.blobdata = data
+
+
+class GitCommit(GitObject):
+    fmt = b"commit"
+
+    def deserialize(self, data):
+        self.kvlm = kvlm_parse(data)
+
+    def serialize(self):
+        return kvlm_serialize(self.kvlm)
+
+    def init(self):
+        self.kvlm = dict()
 
 
 # -------------------------------- CLASSES_END ------------------------------- #
@@ -210,7 +224,7 @@ def object_read(repo: GitRepository, sha: str):
 
         # Read object type
         obj_type_end_idx = raw.find(b" ")  # find the first space
-        fmt = raw[0:obj_type_end_idx] # obj_type idk why they put fmt
+        fmt = raw[0:obj_type_end_idx]  # obj_type idk why they put fmt
 
         # Read and validate object size
         obj_size_end_idx = raw.find(
@@ -236,9 +250,7 @@ def object_read(repo: GitRepository, sha: str):
             case b"blob":
                 c = GitBlob
             case _:
-                raise Exception(
-                    f"Unknown type {fmt.decode('ascii')} for object {sha}"
-                )
+                raise Exception(f"Unknown type {fmt.decode('ascii')} for object {sha}")
         # Call constructor and return object
         return c(raw[obj_size_end_idx + 1 :])
 
@@ -267,20 +279,113 @@ def object_write(obj: GitObject, repo=None | GitRepository):
 def object_find(repo: GitRepository, name, fmt=None, follow=True):
     return name
 
-def object_hash(fd: io.BufferedReader, fmt: str, repo: GitRepository | None=None):
+
+def object_hash(fd: io.BufferedReader, fmt: str, repo: GitRepository | None = None):
     """
     Wrapper fn to create a hash
     """
     data = fd.read()
-    
+
     # Choose constructor according to fmt argument
     match fmt:
-        case b'commit' : obj=GitCommit(data)
-        case b'tree'   : obj=GitTree(data)
-        case b'tag'    : obj=GitTag(data)
-        case b'blob'   : obj=GitBlob(data)
-        case _: raise Exception(f"Unknown type {fmt}!")
+        case b"commit":
+            obj = GitCommit(data)
+        case b"tree":
+            obj = GitTree(data)
+        case b"tag":
+            obj = GitTag(data)
+        case b"blob":
+            obj = GitBlob(data)
+        case _:
+            raise Exception(f"Unknown type {fmt}!")
 
     return object_write(obj, repo)
+
+
+# dct=None is done instead of dct=dict() as dct=dict() will cause
+# the same dictionary to grow across different function calls
+# @REVISIT
+def kvlm_parse(raw: str, start=0, dct=None):
+    """
+    Key Value List with Message (kvlm_parse)
+
+    This deserialises a commit object content.
+
+    The fn is recursive, it reads a key/value pair, calls itself to a new position.
+    """
+
+    # logger.debug(f"raw: {raw} | start: {start} | dct: {dct}")
+
+    if not dct:
+        dct = dict()
+
+    # If a space appears before a new line, we have a keyword. Otherwise,
+    # it's the final message, which we just read to eof
+    space = raw.find(b" ", start)
+    new_line = raw.find(b"\n", start)
+
+    logger.debug(f"space: {space} | new_line: {new_line} | start: {start}")
+
+    # If there's no space or a newline appears first. It's a blank line
+    # A blank line means the remainder of the data is message. We store it in the dict
+    # with None as the key, and return
+    if (space < 0) or (new_line < space):
+        assert new_line == start
+        dct[None] = raw[start + 1 :]
+        return dct
+
+    key = raw[start:space]
+
+    logger.debug(f"key: {key}")
+
+    # Find the end of the value. Continuation lines begin with a
+    # space, so we loop until we find a '\n' not followed by a space
+    end = start
+    while True:
+        end = raw.find(b"\n", end + 1)
+        if raw[end + 1] != ord(" "):
+            break
+    logger.debug(f"end: {end}")
+
+    # Drop the leading space on continuation lines
+    wo_lead_space = space + 1
+    value = raw[wo_lead_space:end].replace(b"\n ", b"\n")
+
+    logger.debug(f"value: {value}")
+
+    if key in dct:
+        if type(dct[key]) == list:
+            dct[key].append(value)
+        else:
+            dct[key] = [dct[key], value]
+    else:
+        dct[key] = value
+
+    logger.debug("")
+    return kvlm_parse(raw, start=end + 1, dct=dct)
+
+
+def kvlm_serialize(kvlm):
+    """
+    Used to serialise a commit object
+    """
+
+    ret = b""
+
+    for k in kvlm.keys():
+        # skip the message itself
+        if k == None:
+            continue
+        val = kvlm[k]
+        if type(val) != list:
+            val = [val]
+
+        for v in val:
+            ret += k + b" " + (v.replace(b"\n", b"\n ")) + b"\n"
+
+    ret += b"\n" + kvlm[None]
+
+    return ret
+
 
 # -------------------------------- HELPER END -------------------------------- #
