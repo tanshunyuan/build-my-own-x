@@ -5,6 +5,7 @@ from loguru import logger
 import traceback
 import zlib
 import hashlib
+import io
 
 from typing import BinaryIO
 
@@ -266,5 +267,20 @@ def object_write(obj: GitObject, repo=None | GitRepository):
 def object_find(repo: GitRepository, name, fmt=None, follow=True):
     return name
 
+def object_hash(fd: io.BufferedReader, fmt: str, repo: GitRepository | None=None):
+    """
+    Wrapper fn to create a hash
+    """
+    data = fd.read()
+    
+    # Choose constructor according to fmt argument
+    match fmt:
+        case b'commit' : obj=GitCommit(data)
+        case b'tree'   : obj=GitTree(data)
+        case b'tag'    : obj=GitTag(data)
+        case b'blob'   : obj=GitBlob(data)
+        case _: raise Exception(f"Unknown type {fmt}!")
+
+    return object_write(obj, repo)
 
 # -------------------------------- HELPER END -------------------------------- #
