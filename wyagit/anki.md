@@ -37,6 +37,8 @@
 - How is a tree object content formatted? [mode] space [path] 0x00 [sha-1]
 - What does a tree object represent? A folder/directory
 - What is a ref? It's a human-readable name that represent a object hash/other refs/commits
+- What is a branch? It's a human-readable name that is a reference to a commit
+- Where does branches live? `.git/refs/heads`
 - What are the two type of refs in the contents of `.git/refs`? Indirect Reference & direct reference
 - What is a indirect reference? A ref referencing another ref and it'll usually start with `ref: <path/to/other/ref>` 
     - E.g. ref: refs/remotes/origin/master
@@ -50,6 +52,7 @@
 - Where does tag live in .git? `.git/refs/tags`
 - Where does branches live in .git? `.git/refs/heads`
 - Where does the current/active branch live in `.git`? `.git/HEAD`, this is a ref file containing- a indirect reference aka path/to/other/ref
+- What does DETACHED HEAD mean? It's when the user checks out on any commit instead of a branch. HEAD contains a direct instead of indirect ref?
 - How does a short hash look like? 5bd254 instead of 5bd254aa973646fa16f66d702a5826ea14a3eb45
 - What is the two step process when performing a commit? A git add / git rm followed by a git commit -m <MESSAGE>
 - What's the name of the stage between the last and next commit. And what's used to represent this stage?

@@ -1,4 +1,5 @@
 import os
+import re
 import configparser
 from constants import GIT_DIR, GIT_CONFIG_FILE
 from loguru import logger
@@ -311,7 +312,83 @@ def object_write(obj: GitObject, repo=None | GitRepository):
 
 
 def object_find(repo: GitRepository, name, fmt=None, follow=True):
-    return name
+    """
+    Cannot find stuff??
+    """
+    sha = object_resolve(repo, name)
+    if not sha:
+        raise Exception(f"No such reference {name}.")
+
+    if len(sha) > 1:
+        raise Exception(
+            "Ambiguous reference {name}: Candidates are:\n - {'\n - '.join(sha)}."
+        )
+
+    sha = sha[0]
+
+    if not fmt:
+        return sha
+
+    while True:
+        obj = object_read(repo, sha)
+
+        if obj.fmt == fmt:
+            return sha
+
+        if not follow:
+            return None
+
+        # Follow tags
+        if obj.fmt == b"tag":
+            sha = obj.kvlm[b"object"].decode("ascii")
+        elif obj.fmt == b"commit" and fmt == b"tree":
+            sha = obj.kvlm[b"tree"].decode("ascii")
+        else:
+            return None
+
+
+def object_resolve(repo: GitRepository, name: str):
+    """
+    Resolve name to an object hash in repo.
+
+    If name == HEAD, returns .git/HEAD
+    If name == full hash, returns full hash
+    If name == short hash, return a list containing full hash beginning with a short hash
+    If name == tags/branch, return matching name
+    """
+
+    if not name.strip():
+        logger.warning(f"{name} is empty")
+        return None
+
+    if name == "HEAD":
+        return [ref_resolve(repo, "HEAD")]
+
+    candidates = list()
+    hashRE = re.compile(r"^[0-9A-Fa-f]{4,40}$")
+
+    if hashRE.match(name):
+        # Hash can either be short or full
+        name = name.lower()
+        obj_dir = name[0:2]
+        path = repo_dir(repo, "objects", obj_dir, mkdir=False)
+        if path:
+            obj_file_name = name[2:]
+            for file in os.listdir(path):
+                if file.startswith(obj_file_name):
+                    full_hash = obj_dir + obj_file_name
+                    candidates.append(full_hash)
+        else:
+            logger.warning(f"{path} is empty")
+
+    as_tag = ref_resolve(repo, "refs/tags/" + name)
+    if as_tag:
+        candidates.append(as_tag)
+
+    as_branch = ref_resolve(repo, "refs/heads/" + name)
+    if as_branch:
+        candidates.append(as_branch)
+    return candidates
 
 
 def object_hash(fd: io.BufferedReader, fmt: str, repo: GitRepository | None = None):
