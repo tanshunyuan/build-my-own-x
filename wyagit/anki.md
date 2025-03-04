@@ -67,11 +67,22 @@
 # Ahas
 * When git tracks a file within a repo, it's not actually track a file. Instead they're file objects, and the names are identified by the SHA-1 hash of the file contents
 * Blob doesn't contain metadata, a file does
+* All trees, commits and blob are binary files. The content might differ but they're all identified by SHA-1 hash
 
 # Questions
-- Aren't tags and commit also binary objects? So why is tree object so special?
+- How does tags and commit differ from tree objects which is binary objects
 - So what exactly is tree objects?
-- Object folder contains tree, commits and tags?
-- Can we say that all the object in git are identified by hashes
-- All trees, commits and blob are binary files. The content might differ but they're all identified by SHA-1 hash
+- Object folder contains tree, commits and tags? 
+  - YES
+- Can we say that all the object in git are identified by hashes? 
+  - YES
+- What's a work tree?
+  - A work tree is the directory (alongside files and subdir) that contains a repository (.git)
+- What's a tree?
+  - A tree describes the content of the work tree
+- Where's a tree stored?
+- How does the different mode determine: tree, blob, blob(symlink), commit?
 
+# Revist
+`kvlm_parse` - this fn is wack
+tree is binary object then what about commits and tags??

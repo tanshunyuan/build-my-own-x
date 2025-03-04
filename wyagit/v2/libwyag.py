@@ -3,6 +3,8 @@ from command.init import cmd_init
 from command.catfile import cmd_cat_file
 from command.hashobject import cmd_hash_object
 from command.log import cmd_log
+from command.lstree import cmd_ls_tree
+from command.checkout import cmd_checkout
 import sys
 
 def main(argv=sys.argv[1:]):

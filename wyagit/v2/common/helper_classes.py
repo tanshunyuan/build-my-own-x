@@ -6,6 +6,7 @@ import traceback
 import zlib
 import hashlib
 import io
+import json
 
 
 from typing import BinaryIO
@@ -105,6 +106,32 @@ class GitCommit(GitObject):
 
     def init(self):
         self.kvlm = dict()
+
+
+class GitTreeLeaf:
+    """
+    mode: ??
+    path: points to a blob (file) or a tree (dir)
+    sha: SHA-1 of the object
+    """
+
+    def __init__(self, mode: str, path: str, sha: str):
+        self.mode = mode
+        self.path = path
+        self.sha = sha
+
+
+class GitTree(GitObject):
+    fmt = b"tree"
+
+    def deserialize(self, data):
+        self.items = tree_parse(data)
+
+    def serialize(self):
+        return tree_serialize(self)
+
+    def init(self):
+        self.items = list()
 
 
 # -------------------------------- CLASSES_END ------------------------------- #
@@ -213,7 +240,9 @@ def object_read(repo: GitRepository, sha: str):
     """
     obj_dir_name = sha[0:2]
     obj_b_file_name = sha[2:]
+    logger.debug(f"obj_dir_name: {obj_dir_name} | obj_b_file_name: {obj_b_file_name}")
     path = repo_file(repo, "objects", obj_dir_name, obj_b_file_name)
+    logger.debug(f"path: {path}")
 
     if not os.path.isfile(path):
         return None
@@ -252,7 +281,8 @@ def object_read(repo: GitRepository, sha: str):
             case _:
                 raise Exception(f"Unknown type {fmt.decode('ascii')} for object {sha}")
         # Call constructor and return object
-        return c(raw[obj_size_end_idx + 1 :])
+        obj = c(raw[obj_size_end_idx + 1 :])
+        return obj
 
 
 def object_write(obj: GitObject, repo=None | GitRepository):
@@ -388,4 +418,69 @@ def kvlm_serialize(kvlm):
     return ret
 
 
+def tree_parse_worker(raw: bytes, start=0):
+    """
+    Format of a tree: [mode] space [path] 0x00 [sha-1]
+    """
+    space_pos = raw.find(b" ", start)
+    mode_len = space_pos - start
+    assert mode_len == 5 or mode_len == 6
+
+    mode = raw[start:space_pos]
+    logger.debug(f"mode: {mode}")
+    if len(mode) == 5:
+        # Normalize to 6 bytes
+        mode = b"0" + mode
+
+    null_pos = raw.find(b"\x00", space_pos)
+    path = raw[space_pos + 1 : null_pos]
+
+    raw_sha = int.from_bytes(raw[null_pos + 1 : null_pos + 21], "big")
+
+    # Convert it into an hex string, padded to 40 chars with zero if needed
+    sha = format(raw_sha, "040x")
+    return null_pos + 21, GitTreeLeaf(mode, path.decode("utf8"), sha)
+
+
+def tree_parse(raw: bytes):
+    pos = 0
+    max = len(raw)
+    ret = list()
+    while pos < max:
+        pos, data = tree_parse_worker(raw, pos)
+        ret.append(data)
+    return ret
+
+
+def tree_leaf_sort_key(leaf: GitTreeLeaf):
+    if leaf.mode.startswith(b"10"):
+        return leaf.path
+    else:
+        return f"{leaf.path}/"
+
+
+def tree_serialize(obj: GitTree):
+    obj.items.sort(key=tree_leaf_sort_key)
+    ret = b""
+    for i in obj.items:
+        ret += i.mode
+        ret += b" "
+        ret += i.path.encode("utf8")
+        ret += b"\x00"
+        sha = int(i.sha, 16)
+        ret += sha.to_bytes(20, byteorder="big")
+    return ret
+
+def tree_checkout(repo: GitRepository, tree: GitTree, path: str):
+    for item in tree.items:
+        obj = object_read(repo, item.sha)
+        dest = os.path.join(path, item.path)
+
+        if obj.fmt == b'tree':
+            os.mkdir(dest)
+            tree_checkout(repo, obj, dest)
+        elif obj.fmt == b'blob':
+            # @TODO Support symlinks (identified by mode 12****)
+            with open(dest, 'wb') as f:
+                f.write(obj.blobdata)
 # -------------------------------- HELPER END -------------------------------- #
