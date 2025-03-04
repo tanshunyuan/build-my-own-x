@@ -36,11 +36,16 @@
 - What's the difference between a space and 0x00? space is the delimeter between a key-value pair, whereas 0x00 is a null byte that separates header from content
 - How is a tree object content formatted? [mode] space [path] 0x00 [sha-1]
 - What does a tree object represent? A folder/directory
-- What is a ref? It's a human-readable name that represent a object hash or other refs
+- What is a ref? It's a human-readable name that represent a object hash/other refs/commits
 - What are the two type of refs in the contents of `.git/refs`? Indirect Reference & direct reference
-- What is a indirect reference? A ref referencing another ref. E.g. ref:path/to/other/ref
-- What is a direct reference? A ref with a SHA-1 object
-- What is a tag? It's a ref.
+- What is a indirect reference? A ref referencing another ref and it'll usually start with `ref: <path/to/other/ref>` 
+    - E.g. ref: refs/remotes/origin/master
+- What is a direct reference? A ref with a SHA-1 object.
+    - E.g. 6071c08bcb4757d8c89a30d9755d2466cef8c1de
+- What happens when a indirect reference is used? It'll be recursively resolved to a direct reference (hash)
+- Where does refs live? `.git/refs/`
+- What is a tag and what is it used for? A tag is a ref, and it's name is user defined meant for identifying a commit for a release. E.g. v1.0.0
+- What type of file is a ref stored as? A text file
 - What are the two types of tag? Lightweight tag (contains just a hash) & Tag objects (same format as a commit obj)
 - Where does tag live in .git? `.git/refs/tags`
 - Where does branches live in .git? `.git/refs/heads`
@@ -68,6 +73,7 @@
 * When git tracks a file within a repo, it's not actually track a file. Instead they're file objects, and the names are identified by the SHA-1 hash of the file contents
 * Blob doesn't contain metadata, a file does
 * All trees, commits and blob are binary files. The content might differ but they're all identified by SHA-1 hash
+* refs are text files
 
 # Questions
 - How does tags and commit differ from tree objects which is binary objects
@@ -82,6 +88,7 @@
   - A tree describes the content of the work tree
 - Where's a tree stored?
 - How does the different mode determine: tree, blob, blob(symlink), commit?
+- How does git checkout actually work?
 
 # Revist
 `kvlm_parse` - this fn is wack
