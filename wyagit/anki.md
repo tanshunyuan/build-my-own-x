@@ -3,7 +3,7 @@
 - What is Git? Git is a version control system which tracks any changes (files, folder/directory) made in a project.
 - What is a Git Repository? It's the `.git` folder inside a project
 - What is a `.git` folder? It's a content-addressable store (key-value pair) acting as a object database, containing a snapshot of the entire project, commits, and history.
-- What makes a project a git repository?
+- What makes a project a git repository? 
   - A working tree: the directory which is being tracked
   - A `.git` folder: a child directory of the working tree which contains all the information of the working tree represented in different types of object
 - What is a git object? Git objects are binary file that represent files and folders within a project. 
@@ -18,11 +18,11 @@
 - What happens when a file in a working tree is modified (assuming the change is staged)? A new blob object with a unique hash is created within the `.git/object` folder.
 - Why is git considered a value-value store? As the key isn't separately derived from elsewhere instead it's computed from data/contents of a file
 - How does git compute the storage path of an object? By generating a SHA-1 hash based off the file content
-- How does git interpret an object storage path?
+- How does git interpret an object storage path? 
   - The hash is rendered as a lowercase hexadecimal string to be human readable (e.g. 7a10fcfc5e36ef9669c86367c822c88fbba5ca6c)
   - It's split into two parts: First two char which represents the directory name. The rest as the binary file name
   - E.g. 7a10fcfc5e36ef9669c86367c822c88fbba5ca6c -> .git/objects/7a/10fcfc5e36ef9669c86367c822c88fbba5ca6c
-- What is the data format of a object file?
+- What is the data format of a object file? 
   - It's made of two parts: header & content
   - Contents is everything after the header
   - Header format: [obj-type] space [content size in ASCII] null. [obj-type] represent the type of object: commit, tree, blob or tag
@@ -33,11 +33,11 @@
     - null: 00 = NULL
     - content: 74 72 65 65 = tree (there's will be more)
 - What's the decompression/compression protocol used on git binary file? zlib
-- How are the contents of a **commit** object formatted?
+- How are the contents of a **commit** object formatted? 
   - On a line, if the first space is surrounded by two characters. The left will be the key and the anything to the right is the value before '\n'. Key-value pair
   - If there are multi lines a space at the start is required. And this leading space needs to be removed. The terminal point of this is when the parser doesn't detect a leading space anymore on a new line
 - Does a python HashMap preserve order insertion? Yes.
-- What are the two rules pertaining to a object identity in Git?
+- What are the two rules pertaining to a object identity in Git? 
   - The same name will always refer to the same object
   - The same object will always be referred by the same name. Which means there can't be two equivalent object under different name
 - What's the difference between a space and 0x00? space is the delimeter between a key-value pair, whereas 0x00 is a null byte that separates header from content
@@ -62,9 +62,9 @@
 - What does DETACHED HEAD mean? It's when the user checks out on any commit instead of a branch. HEAD contains a direct instead of indirect ref?
 - How does a short hash look like? 5bd254 instead of 5bd254aa973646fa16f66d702a5826ea14a3eb45
 - What is the two step process when performing a commit? A git add / git rm followed by a git commit -m <MESSAGE>
-- What's the name of the stage between the last and next commit. And what's used to represent this stage?
+- What's the name of the stage between the last and next commit. And what's used to represent this stage? 
   - The stage is called: staging area and a binary file located at .git/index is used to represent the changes in this stage
-- What are the types of gitignore file and where does it live?
+- What are the types of gitignore file and where does it live? 
   - absolute: lives in '~/.config/git/ignore' or '.git/info/exclude'; global ignore file
   - scoped: lives in `<PROJECT>/.gitignore`
 - What's the heirachy of ignore? Scope first then global
