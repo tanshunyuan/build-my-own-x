@@ -411,7 +411,7 @@ def object_hash(fd: io.BufferedReader, fmt: str, repo: GitRepository | None = No
 # dct=None is done instead of dct=dict() as dct=dict() will cause
 # the same dictionary to grow across different function calls
 # @REVISIT
-def kvlm_parse(raw: str, start=0, dct=None):
+def kvlm_parse(raw: bytes, start=0, dct=None):
     """
     Key Value List with Message (kvlm_parse)
 
@@ -427,22 +427,24 @@ def kvlm_parse(raw: str, start=0, dct=None):
 
     # If a space appears before a new line, we have a keyword. Otherwise,
     # it's the final message, which we just read to eof
-    space = raw.find(b" ", start)
-    new_line = raw.find(b"\n", start)
+    space_pos = raw.find(b" ", start)
+    new_line_pos = raw.find(b"\n", start)
 
-    logger.debug(f"space: {space} | new_line: {new_line} | start: {start}")
+    logger.debug(
+        f"space_pos: {space_pos} | new_line_pos: {new_line_pos} | start: {start}"
+    )
 
-    # If there's no space or a newline appears first. It's a blank line
+    # It's a blank line if there's no space or a newline
     # A blank line means the remainder of the data is message. We store it in the dict
     # with None as the key, and return
-    if (space < 0) or (new_line < space):
-        assert new_line == start
+    blank_line = (space_pos < 0) or (new_line_pos < space_pos)
+    logger.debug(f"blank_line: {blank_line}")
+    if blank_line:
+        assert new_line_pos == start
         dct[None] = raw[start + 1 :]
         return dct
 
-    key = raw[start:space]
-
-    logger.debug(f"key: {key}")
+    key = raw[start:space_pos]
 
     # Find the end of the value. Continuation lines begin with a
     # space, so we loop until we find a '\n' not followed by a space
@@ -454,10 +456,10 @@ def kvlm_parse(raw: str, start=0, dct=None):
     logger.debug(f"end: {end}")
 
     # Drop the leading space on continuation lines
-    wo_lead_space = space + 1
+    wo_lead_space = space_pos + 1
     value = raw[wo_lead_space:end].replace(b"\n ", b"\n")
 
-    logger.debug(f"value: {value}")
+    logger.debug(f"key: {key} | value: {value}")
 
     if key in dct:
         if type(dct[key]) == list:
@@ -473,7 +475,7 @@ def kvlm_parse(raw: str, start=0, dct=None):
 
 def kvlm_serialize(kvlm):
     """
-    Used to serialise a commit object
+    Writing commits / tags in a text format
     """
 
     ret = b""
@@ -536,6 +538,9 @@ def tree_leaf_sort_key(leaf: GitTreeLeaf):
 
 
 def tree_serialize(obj: GitTree):
+    """
+    Writing a tree object in a binary format
+    """
     obj.items.sort(key=tree_leaf_sort_key)
     ret = b""
     for i in obj.items:
