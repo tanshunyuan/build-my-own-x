@@ -585,7 +585,7 @@ def ref_resolve(repo: GitRepository, ref: str):
     if data.startswith("ref: "):
         logger.debug("returning indirect reference")
         logger.debug(f"data: {data} | data[5:]: {data[5:]}")
-        # @TODO figure out why is it data[5:]
+        # @TODO figure out why is it data[5:], it drops the initial `ref:`
         return ref_resolve(repo, data[5:])
     else:
         # reached direct ref
