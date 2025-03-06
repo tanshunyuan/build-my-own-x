@@ -10,7 +10,9 @@ import io
 import json
 
 
-from typing import BinaryIO
+from typing import BinaryIO, TypedDict, NamedTuple
+
+from collections import namedtuple
 
 
 # ------------------------------- CLASSES_START ------------------------------ #
@@ -238,15 +240,18 @@ def repo_default_config():
 
 def object_read(repo: GitRepository, sha: str):
     """
-    Read object sha from Git repo. Return a GitObject whose exact type depends on the object.
+    Read the contents of the object, based off the SHA provided.
+    Return a GitObject whose exact type depends on the object.
 
     Object binary file format:
-    [object-type] space [content size in ASCII] null [content]
+        - It's made of two parts: header & content
+        - Contents is everything after the header
+        - Header format: [obj-type] space [content size in ASCII] null. [obj-type] represent the type of
     """
-    obj_dir_name = sha[0:2]
-    obj_b_file_name = sha[2:]
-    logger.debug(f"obj_dir_name: {obj_dir_name} | obj_b_file_name: {obj_b_file_name}")
-    path = repo_file(repo, "objects", obj_dir_name, obj_b_file_name)
+    obj_dir_name, obj_file_name = split_obj_sha(sha)
+
+    logger.debug(f"obj_dir_name: {obj_dir_name} | obj_file_name: {obj_file_name}")
+    path = repo_file(repo, "objects", obj_dir_name, obj_file_name)
     logger.debug(f"path: {path}")
 
     if not os.path.isfile(path):
@@ -255,6 +260,7 @@ def object_read(repo: GitRepository, sha: str):
     f: BinaryIO
     with open(path, "rb") as f:
         raw = zlib.decompress(f.read())
+        logger.debug(f"raw: {raw}")
 
         # Read object type
         obj_type_end_idx = raw.find(b" ")  # find the first space
@@ -357,6 +363,7 @@ def object_resolve(repo: GitRepository, name: str):
     If name == tags/branch, return matching name
     """
 
+    logger.debug(f"repo: {repo} | name: {name}")
     if not name.strip():
         logger.warning(f"{name} is empty")
         return None
@@ -382,10 +389,12 @@ def object_resolve(repo: GitRepository, name: str):
             logger.warning(f"{path} is empty")
 
     as_tag = ref_resolve(repo, "refs/tags/" + name)
+    logger.debug(f"as_tag: {as_tag}")
     if as_tag:
         candidates.append(as_tag)
 
     as_branch = ref_resolve(repo, "refs/heads/" + name)
+    logger.debug(f"as_branch: {as_branch}")
     if as_branch:
         candidates.append(as_branch)
     return candidates
@@ -583,6 +592,8 @@ def ref_resolve(repo: GitRepository, ref: str):
         # Drop final \n ^^^^^
 
     if data.startswith("ref: "):
+        logger.debug("returning indirect reference")
+        logger.debug(f"data: {data} | data[5:]: {data[5:]}")
         # @TODO figure out why is it data[5:]
         return ref_resolve(repo, data[5:])
     else:
@@ -636,6 +647,21 @@ def tag_create(repo: GitRepository, name: str, ref: str, create_tag_object=False
 def ref_create(repo, ref_name, sha):
     with open(repo_file(repo, "refs/" + ref_name), "w") as fp:
         fp.write(sha + "\n")
+
+
+class ObjShaParts(NamedTuple):
+    obj_dir_name: str
+    obj_file_name: str
+
+def split_obj_sha(sha: str) -> ObjShaParts:
+    """
+    Returns a dictionary with the obj directory and obj file name
+    """
+    obj_dir_name = sha[0:2]
+    obj_file_name = sha[2:]
+
+    # return {"obj_dir_name": obj_dir_name, "obj_file_name": obj_file_name}
+    return ObjShaParts(obj_dir_name, obj_file_name)
 
 
 # -------------------------------- HELPER END -------------------------------- #

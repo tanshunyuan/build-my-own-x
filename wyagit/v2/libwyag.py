@@ -8,6 +8,7 @@ from command.checkout import cmd_checkout
 from command.showref import cmd_show_ref
 from command.tag import cmd_tag
 from command.revparse import cmd_rev_parse
+from loguru import logger
 
 import sys
 

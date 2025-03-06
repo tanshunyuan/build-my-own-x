@@ -11,6 +11,8 @@
 - What is a commit? A snapshot of the working tree
 - What is a blob? It's a binary file that contains user data, without any metadata
 - What is a tree? It's a directory listing of blobs and tree.
+- What is the uncompressed format of a tree? binary format
+- What is the uncompressed format of a commit and tag? text format
 - What are some common functions that the object share? The same storage/retrieval mechanism and general header format
 - What happens when a file in a working tree is modified (assuming the change is staged)? A new blob object with a unique hash is created within the `.git/object` folder.
 - Why is git considered a value-value store? As the key isn't separately derived from elsewhere instead it's computed from data/contents of a file
@@ -76,12 +78,15 @@
 # Ahas
 
 - Blob doesn't contain metadata, a file does
-- All trees, commits and blob are binary files. The content might differ but they're all identified by SHA-1 hash
-- refs are text files
+- All objects are stored as binary files due to the zlib compression.
+- SHA-1 Hash of objects is calculated through the raw contents of the object (before zlib)
+- Refs are text files
+- The raw format of commits & tags is text-based
+- The raw format of trees is binary-based
+  - ![alt text](./assets/raw-git-tree.png)
 
 # Questions
 
-- How does tags and commit differ from tree objects which is binary objects
 - So what exactly is tree objects?
   - Tree objects contains references to other trees and files in the work tree
 - Object folder contains tree, commits and tags?

@@ -18,9 +18,12 @@ wyag_catfile.add_argument("object",
                    help="The object to display")
 
 def cmd_cat_file(args):
+    logger.debug(args)
     repo = repo_root_finder()
     cat_file(repo, args.object, fmt=args.type.encode())
 
 def cat_file(repo, obj, fmt=None):
-    obj = object_read(repo, object_find(repo, obj, fmt=fmt))
+    sha = object_find(repo, obj, fmt=fmt)
+    logger.debug(f"sha: {sha}")
+    obj = object_read(repo, sha)
     sys.stdout.buffer.write(obj.serialize())
