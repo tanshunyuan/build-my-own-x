@@ -262,24 +262,10 @@ def object_read(repo: GitRepository, sha: str):
         raw = zlib.decompress(f.read())
         logger.debug(f"raw: {raw}")
 
-        # Read object type
-        obj_type_end_idx = raw.find(b" ")  # find the first space
-        fmt = raw[0:obj_type_end_idx]  # obj_type idk why they put fmt
-
-        # Read and validate object size
-        obj_size_end_idx = raw.find(
-            b"\x00", obj_type_end_idx
-        )  # find null after the first space
-        obj_size = int(
-            raw[obj_type_end_idx:obj_size_end_idx].decode("ascii")
-        )  # grab the in-between
-
-        logger.info(f"fmt: {fmt} | obj_size: {obj_size}")
-
-        if obj_size != len(raw) - obj_size_end_idx - 1:
-            raise Exception(f"Malformed object {sha}: bad length")
+        fmt, null_pos = process_obj_header(raw, sha)
 
         # Pick constructor
+        c: type[GitCommit] | type[GitTree] | type[GitTag] | type[GitBlob]
         match fmt:
             case b"commit":
                 c = GitCommit
@@ -292,7 +278,7 @@ def object_read(repo: GitRepository, sha: str):
             case _:
                 raise Exception(f"Unknown type {fmt.decode('ascii')} for object {sha}")
         # Call constructor and return object
-        obj = c(raw[obj_size_end_idx + 1 :])
+        obj = c(raw[null_pos + 1 :])
         return obj
 
 
@@ -653,6 +639,7 @@ class ObjShaParts(NamedTuple):
     obj_dir_name: str
     obj_file_name: str
 
+
 def split_obj_sha(sha: str) -> ObjShaParts:
     """
     Returns a dictionary with the obj directory and obj file name
@@ -662,6 +649,31 @@ def split_obj_sha(sha: str) -> ObjShaParts:
 
     # return {"obj_dir_name": obj_dir_name, "obj_file_name": obj_file_name}
     return ObjShaParts(obj_dir_name, obj_file_name)
+
+
+class ProcessObjHeaderResults(NamedTuple):
+    fmt: bytes
+    null_pos: int
+
+
+def process_obj_header(raw: bytes, sha: str):
+    """
+    Format of an object header: [obj-type] space [content size in ASCII] null
+    """
+
+    space_pos = raw.find(b" ")
+    fmt = raw[0:space_pos]  # AKA obj-type
+
+    null_pos = raw.find(b"\x00", space_pos)  # find null AFTER first space
+    obj_size = int(raw[space_pos:null_pos].decode("ascii"))
+
+    logger.info(f"fmt: {fmt} | obj_size: {obj_size}")
+
+    is_obj_valid = obj_size == len(raw) - null_pos - 1
+    if not is_obj_valid:
+        raise Exception(f"Malformed object {sha}: bad length")
+
+    return ProcessObjHeaderResults(fmt, null_pos)
 
 
 # -------------------------------- HELPER END -------------------------------- #
