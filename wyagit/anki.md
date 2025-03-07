@@ -6,7 +6,7 @@
 - What makes a project a git repository? 
   - A working tree: the directory which is being tracked
   - A `.git` folder: a child directory of the working tree which contains all the information of the working tree represented in different types of object
-- What is a git object? Git objects are binary file that represent files and folders within a project. 
+- What is a git object? Git objects are binary file that represent files and folders within a project. <TO_CHANGE> the obj is not just file and folders
 - Where is git objects located? It's located in the `.git/object` folder. The object name and path is identified by a SHA-1 hash which is derived from the contents of the file.
 - What are the different types of objects in Git? Files, commit, tree, tags. Almost everything is stored as an object
 - What is a commit? A snapshot of the working tree
