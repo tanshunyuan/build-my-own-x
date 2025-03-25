@@ -1,4 +1,4 @@
-# Things to add into anki:
+# Cards to add into anki:
 
 - What is Git? Git is a version control system which tracks any changes (files, folder/directory) made in a project.
 - What is a Git Repository? It's the `.git` folder inside a project

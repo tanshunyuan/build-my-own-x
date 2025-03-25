@@ -1,0 +1,24 @@
+# Cards to add into anki:
+
+- Are children considered props? Yes
+- Are elements an instance? No
+- How does elements differ from a class component?
+  - Element only describes what React should render
+  - Class component has methods which are capable of Creating, Updating, Rendering and destroying it's instances which has to managed manually 
+- How are traditional component and it's instances created?
+  - A component can be created by a class, and instances are created by instantiating multiple components
+- How is an element represented in a fibre tree? An element is represented as a fiber in a fiber tree. Additionally, each fiber is a unit of work
+- What are the types that the `type` attribute represent? In a react POJO
+- In a react element POJO, what are the possible values for the `type` attribute?
+  - string - DOM Node
+  - function - Functional Component / Class
+- What does a element tree contain? DOM Nodes & element
+- What does each component & instances have? It's own state and properties
+- What does React do then? It manages the lifecycle of elements
+- What happens when two root elements are different? The previous tree and it's children will be destroyed in favour of the new one
+- What is a fibre tree in React? It's a data structure that helps to organise unit of works.
+- What is a React element? It's a POJO description of what should be rendered on the screen.  It can be either a Component instance or DOM node
+- What is reconcilliation? Using a diffing algorithm on a new/incoming tree against the current tree, to determine which parts need to be changed
+- What is used to manage a functional component state? Hooks
+- What's the core idea of React? Everything that describes what should be rendred on the screen is considered an element, regardless of the source.
+- What's the fibre tree linking heirachy? Child, siblings, uncle, parent
