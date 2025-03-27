@@ -62,7 +62,7 @@ export const createElement = (type: ElementType, props?: ElementProps, ...childr
       children: children.map(child => typeof child === 'object' ? child : createTextElement(child))
     }
   }
-  cl('createElement.results ==> ',JSON.stringify(results, null, 2))
+  cl('createElement.results ==> ', JSON.stringify(results, null, 2))
   return results
 }
 
@@ -80,6 +80,6 @@ const createTextElement = (text: string) => {
     }
   }
 
-  cl('createTextElement.results ==> ',JSON.stringify(results, null, 2))
+  cl('createTextElement.results ==> ', JSON.stringify(results, null, 2))
   return results
 }

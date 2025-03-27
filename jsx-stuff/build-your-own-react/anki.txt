@@ -1,6 +1,10 @@
-# Cards to add into anki:
+What's a transpiler?; A transpiler is a special compiler that converts source code from one programming language or syntax into a similar representation, potentially in the same or a different language, with a distinctly different syntax.
+Why does JSX require a transpiler?; The JSX format is not valid in the browser, hence a transpiler translate JSX to valid JS syntax which the browser can understand.
+What are some commonly used transpiler for React?; esbuild and babel.
+What's the renderer function for JSX in React?; createElement().
+What's a VDOM?; A lightweight representation of the DOM in JS.
+Are children considered props?; Yes.
 
-- Are children considered props? Yes
 - Are elements an instance? No
 - How does elements differ from a class component?
   - Element only describes what React should render
