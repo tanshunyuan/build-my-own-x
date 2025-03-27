@@ -68,8 +68,7 @@ export const createElement = (type: ElementType, props?: ElementProps, ...childr
 
 /**
  * @description
- * as `type` can be string or function, we need to handle the string type
- * which is dom elements 
+ * Creates a text element if the element children is a string
  */
 const createTextElement = (text: string) => {
   const results = {
