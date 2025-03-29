@@ -3,26 +3,27 @@ Why does JSX require a transpiler?; The JSX format is not valid in the browser, 
 What are some commonly used transpiler for React?; esbuild and babel.
 What's the renderer function for JSX in React?; createElement().
 What's a VDOM?; A lightweight representation of the DOM in JS.
+What are instances?; It's a version/occurance of a class component in React. As a class has it's own state and properties, most of it can be accessed by `this` keyword.
+What are component instances?; It's a indirect reference to class components.
 Are children considered props?; Yes.
+Are elements considered an instance?; No.
+How does elements differ from a class component?;"- Element only describes what React should render. - Class component has methods which are capable of Creating, Updating, Rendering and destroying it's instances which has to managed manually."
+Why is `requestIdleCallback` used?; It's used to prioritize low-priority work during browser idle periods, enabling React rendering without blocking more resource-intensive tasks like user interactions or other rendering processes.
+How are traditional component and it's instances created?; A component can be created by a class, and instances are created by instantiating multiple components.
+What's a component?; Independent & reusable pieces of code that defines a specific part of the user interface. 
+What's a element?; It's a JS object that describes to react what to display on the screen. Additionally, elements are immutable.
+How many types of components are there, and what are they?; There are two types of components and they are functional and class based components.
+How is an element represented in a fibre tree?; An element is represented as a fiber in a fiber tree, and each fiber is considered a unit of work.
+What does class component & instances have?; It's own state.
+What is used to manage a functional component state?; The `useState` hook.
+What's the difference between state & lifecycle?; State refers to the mutable data/information within the component, whereas lifecycle is refers to the CRUD of components which is managed by React.
+How are state & lifecycle connected?; Any update to a state will trigger a update lifecycle within React as the changes needs to be reflected on the component.
+What does React do?; It manages the lifecycle of elements.
+In an element object, what are the possible values for the `type` attribute?; " - string - DOM Node - function - Functional Component / Class"
+What happens when two root elements are different?; The previous tree and it's children will be destroyed in favour of the new one.
 
-- Are elements an instance? No
-- How does elements differ from a class component?
-  - Element only describes what React should render
-  - Class component has methods which are capable of Creating, Updating, Rendering and destroying it's instances which has to managed manually 
-- How are traditional component and it's instances created?
-  - A component can be created by a class, and instances are created by instantiating multiple components
-- How is an element represented in a fibre tree? An element is represented as a fiber in a fiber tree. Additionally, each fiber is a unit of work
-- What are the types that the `type` attribute represent? In a react POJO
-- In a react element POJO, what are the possible values for the `type` attribute?
-  - string - DOM Node
-  - function - Functional Component / Class
-- What does a element tree contain? DOM Nodes & element
-- What does each component & instances have? It's own state and properties
-- What does React do then? It manages the lifecycle of elements
-- What happens when two root elements are different? The previous tree and it's children will be destroyed in favour of the new one
 - What is a fibre tree in React? It's a data structure that helps to organise unit of works.
 - What is a React element? It's a POJO description of what should be rendered on the screen.  It can be either a Component instance or DOM node
 - What is reconcilliation? Using a diffing algorithm on a new/incoming tree against the current tree, to determine which parts need to be changed
-- What is used to manage a functional component state? Hooks
 - What's the core idea of React? Everything that describes what should be rendred on the screen is considered an element, regardless of the source.
 - What's the fibre tree linking heirachy? Child, siblings, uncle, parent
